@@ -10,7 +10,7 @@
 
 import type {
   AiSettings, AiSettingsView, BackupKind, Backups, CountryTie, Dismissal, Goal, ImportPreview, Profile, RiskAnswer, RiskProfile, RiskQuestion,
-  RollbackPlan, Status, Step, UpdateInfo, UpdateMode, UpdateStatus,
+  RollbackPlan, SecurityStatus, Status, Step, UpdateInfo, UpdateMode, UpdateStatus,
 } from './api.ts'
 import { formatMoney, monthsCovered, roughNetWorth, type Money } from './money.ts'
 
@@ -360,7 +360,7 @@ const handlers: Record<string, (a: Args) => unknown> = {
   ai_settings_get: (): AiSettingsView => {
     needOpen()
     const settings = (db.settings['ai.settings'] as AiSettings | undefined) ?? AI_OFF
-    return { settings, keySet: Boolean(db.settings['ai.keySet']), keyProblem: null, problem: settings.model ? null : 'Enter a model name.', localSuggestion: 'http://localhost:11434/v1', canSend: false }
+    return { settings, keySet: Boolean(db.settings['ai.keySet']), keyProblem: null, problem: settings.model ? null : 'Enter a model name.', localSuggestion: 'http://localhost:11434/v1', anthropicSuggestion: 'https://api.anthropic.com', anthropicModel: 'claude-sonnet-5-5', canSend: true }
   },
   ai_settings_set: ({ settings }) => { needOpen(); db.settings['ai.settings'] = settings; return null },
   ai_key_set: () => { needOpen(); db.settings['ai.keySet'] = true; return null },
@@ -373,6 +373,20 @@ const handlers: Record<string, (a: Args) => unknown> = {
     return { system: 'You explain an investment plan in plain English to a non-expert.', text, destination: 'localhost', provider: settings.provider }
   },
   ai_send: () => { throw 'The browser preview never sends anything to an AI model.' },
+  security_status: (): SecurityStatus => {
+    needOpen()
+    const hasPin = Boolean(db.settings['lock.pin'])
+    return {
+      rows: [
+        { id: 'lock', label: 'App lock', level: hasPin ? 'good' : 'info', detail: hasPin ? 'On, with a PIN.' : 'Off. Set a PIN to hide your data when you step away.' },
+        { id: 'biometric', label: 'Fingerprint or face', level: 'na', detail: 'For phones; use a PIN on this computer.' },
+        { id: 'captureBlock', label: 'Block screenshots and screen recording', level: 'na', detail: 'For phones.' },
+        { id: 'dbEncrypted', label: 'Data encrypted', level: 'good', detail: 'Yes. The key is kept in the system keyring.' },
+        { id: 'lastBackup', label: 'Last backup', level: 'good', detail: 'less than an hour ago' },
+      ],
+    }
+  },
+  set_block_capture: () => { throw 'Blocking screenshots is for phones.' },
   export_json: () => { needOpen(); return null },
   export_csv: ({ folder }) => { needOpen(); return `${folder}/samriddhi-export-${TODAY}-090000` },
   import_pick: (): ImportPreview => {

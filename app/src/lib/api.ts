@@ -144,9 +144,10 @@ export interface FeedView {
   errors: string[]
 }
 
-export type AiProvider = 'local' | 'cloud'
+/** local: your own model; cloud: an OpenAI-compatible service; anthropic: Anthropic's API. */
+export type AiProvider = 'local' | 'cloud' | 'anthropic'
 
-/** AI narration settings. The key is never here: it lives in the OS keyring. */
+/** AI narration settings. The key is never here: it lives in the OS keyring (Android: the Keystore). */
 export interface AiSettings {
   enabled: boolean
   provider: AiProvider
@@ -162,7 +163,10 @@ export interface AiSettingsView {
   /** Why the settings cannot be used yet. */
   problem: string | null
   localSuggestion: string
-  /** False on phones for now: preview only. */
+  /** Suggested address and model for the Anthropic provider; any other model id may be typed. */
+  anthropicSuggestion: string
+  anthropicModel: string
+  /** True on every build now (phones too). */
   canSend: boolean
 }
 
@@ -172,6 +176,22 @@ export interface AiPreview {
   text: string
   destination: string
   provider: AiProvider
+}
+
+export type SecurityLevel = 'good' | 'info' | 'warn' | 'na'
+
+export interface SecurityRow {
+  id: 'lock' | 'biometric' | 'captureBlock' | 'rootHint' | 'sentinel' | 'dbEncrypted' | 'lastBackup'
+  label: string
+  level: SecurityLevel
+  /** One plain sentence. */
+  detail: string
+  /** Only on the screenshot-block row: whether the switch is on. */
+  on?: boolean
+}
+
+export interface SecurityStatus {
+  rows: SecurityRow[]
 }
 
 export type BackupKind = 'daily' | 'manual' | 'preUpdate' | 'beforeRestore' | 'beforeImport'
@@ -290,6 +310,9 @@ export interface Commands {
   ai_preview: [Record<string, never>, AiPreview]
   /** `text` must be exactly the last preview's text. The answer is plain text to show, never markup. */
   ai_send: [{ text: string }, string]
+  security_status: [Record<string, never>, SecurityStatus]
+  /** Phones only; on a computer it answers with an error. Off by default. */
+  set_block_capture: [{ on: boolean }, null]
   export_json: [{ target: string }, null]
   export_csv: [{ folder: string }, string]
   import_pick: [Record<string, never>, ImportPreview | null]

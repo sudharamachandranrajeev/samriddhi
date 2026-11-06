@@ -63,18 +63,60 @@ impl<R: Runtime> Device<R> {
         Ok(KeyStorage::AndroidKeystore)
     }
 
-    /// AI keys are not kept on phones yet (no Keystore entry for them), so
-    /// only a local model without a key can be set up there.
+    /// The AI key, decrypted with its own Keystore key (never the database's).
+    /// An error means the stored key cannot be read, not that there is none.
     pub fn ai_key(&self) -> Result<Option<String>> {
-        Ok(None)
+        #[derive(Deserialize)]
+        struct Reply {
+            key: Option<String>,
+        }
+        let r: Reply = self
+            .0
+            .run_mobile_plugin("aiKey", serde_json::json!({}))
+            .map_err(|_| Error::Keyring("the saved key cannot be read".into()))?;
+        Ok(r.key)
     }
 
-    pub fn set_ai_key(&self, _key: &str) -> Result<()> {
-        Err(Error::Unsupported)
-    }
-
-    pub fn clear_ai_key(&self) -> Result<()> {
+    /// Keep the AI key, encrypted by a Keystore key. Errors never carry the key.
+    pub fn set_ai_key(&self, key: &str) -> Result<()> {
+        self.0
+            .run_mobile_plugin::<serde_json::Value>("setAiKey", serde_json::json!({ "key": key }))
+            .map_err(|_| Error::Keyring("the key could not be saved".into()))?;
         Ok(())
+    }
+
+    /// Forget the AI key. Does not need to read it, so it also clears a key
+    /// that can no longer be decrypted.
+    pub fn clear_ai_key(&self) -> Result<()> {
+        self.0
+            .run_mobile_plugin::<serde_json::Value>("clearAiKey", serde_json::json!({}))
+            .map_err(|_| Error::Keyring("the key could not be removed".into()))?;
+        Ok(())
+    }
+
+    /// Blocking screenshots and screen recording (Android FLAG_SECURE) works here.
+    pub fn supports_capture_block(&self) -> bool {
+        true
+    }
+
+    /// Turn the screenshot and recording block on or off for this window.
+    pub fn set_capture_block(&self, on: bool) -> Result<()> {
+        self.0
+            .run_mobile_plugin::<serde_json::Value>("setSecure", serde_json::json!({ "on": on }))?;
+        Ok(())
+    }
+
+    /// Signs the phone may be rooted (best-effort, informational). An empty
+    /// list means none found.
+    pub fn root_hints(&self) -> Result<Option<Vec<String>>> {
+        #[derive(Deserialize)]
+        struct Reply {
+            hints: Vec<String>,
+        }
+        let r: Reply = self
+            .0
+            .run_mobile_plugin("rootHints", serde_json::json!({}))?;
+        Ok(Some(r.hints))
     }
 
     /// GET a page from Samriddhi's GitHub releases (Kotlin refuses any other address).

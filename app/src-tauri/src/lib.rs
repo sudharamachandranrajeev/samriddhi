@@ -6,13 +6,17 @@
 mod ai;
 mod data;
 mod export;
+mod lockout;
+mod security;
+mod sentinel;
 mod update;
 mod wealth;
 
 use std::path::PathBuf;
 use std::sync::Mutex;
 
-use jiff::{SignedDuration, Timestamp};
+use jiff::Timestamp;
+use lockout::Lockout;
 use samriddhi_core::export::Export;
 use samriddhi_core::keys::{self, Key};
 use samriddhi_core::store::{self, Store};
@@ -23,9 +27,6 @@ use tauri_plugin_samriddhi_device::{DeviceExt, KeyStorage};
 
 const DB_FILE: &str = "samriddhi.db";
 const BACKUP_DIR: &str = "backups";
-/// Wrong PINs allowed before each wait starts.
-const FREE_TRIES: u32 = 5;
-const MAX_WAIT_SECS: i64 = 15 * 60;
 const LOCKED: &str = "Samriddhi is locked.";
 
 type CommandResult<T> = Result<T, String>;
@@ -45,6 +46,8 @@ struct Inner {
     locked: bool,
     wrong_pins: u32,
     wait_until: Option<Timestamp>,
+    /// Where the wrong count and wait are kept between runs (see `lockout`).
+    lockout_file: Option<PathBuf>,
     /// Something the user should hear about once.
     notice: Option<String>,
     /// An export file read for import, waiting for the user to confirm.
@@ -80,6 +83,10 @@ impl App {
         self.dir.join(DB_FILE)
     }
 
+    fn lockout_path(&self) -> PathBuf {
+        self.dir.join(lockout::FILE)
+    }
+
     /// At start: open the store with the key from this device, if there is
     /// a store. A new install waits for `create_store`.
     fn open(&self, app: &AppHandle) {
@@ -100,7 +107,9 @@ impl App {
                         locked,
                         notice,
                         ..Inner::default()
-                    }
+                    };
+                    // What an earlier run counted still counts.
+                    inner.resume_lockout(self.lockout_path(), now());
                 }
                 (_, Err(e)) => {
                     inner.problem = Some(format!("The saved key does not open your data ({e})."))
@@ -219,12 +228,15 @@ fn create_store(app: AppHandle, state: State<App>) -> CommandResult<String> {
     std::fs::create_dir_all(&state.dir).map_err(err)?;
     let k = app.device().db_key(&state.dir, true).map_err(err)?;
     let store = Store::open(&db, &k.key).map_err(err)?;
-    *state.lock_inner()? = Inner {
+    let mut fresh = Inner {
         store: Some(store),
         key: Some(k.key),
         key_storage: Some(k.storage),
+        lockout_file: Some(state.lockout_path()),
         ..Inner::default()
     };
+    fresh.reset_lockout();
+    *state.lock_inner()? = fresh;
     state.maintain();
     Ok(keys::recovery_text(&k.key))
 }
@@ -258,12 +270,16 @@ fn unlock_with_recovery(app: AppHandle, state: State<App>, recovery: String) -> 
     let store =
         Store::open(&state.db(), &key).map_err(|_| "That recovery key does not open this data.")?;
     let storage = app.device().set_db_key(&state.dir, &key).map_err(err)?;
-    *state.lock_inner()? = Inner {
+    let mut fresh = Inner {
         store: Some(store),
         key: Some(key),
         key_storage: Some(storage),
+        lockout_file: Some(state.lockout_path()),
         ..Inner::default()
     };
+    // The recovery key clears the lock, and the count with it.
+    fresh.reset_lockout();
+    *state.lock_inner()? = fresh;
     state.maintain();
     Ok(())
 }
@@ -272,17 +288,21 @@ fn unlock_with_recovery(app: AppHandle, state: State<App>, recovery: String) -> 
 #[tauri::command]
 fn set_pin(state: State<App>, pin: String) -> CommandResult<()> {
     let hash = keys::pin_hash(&pin).map_err(err)?;
-    state.with(|s| s.set_setting("lock.pin", &hash))
+    state.with(|s| s.set_setting("lock.pin", &hash))?;
+    state.lock_inner()?.reset_lockout();
+    Ok(())
 }
 
 /// Remove the PIN. Only while unlocked.
 #[tauri::command]
 fn clear_pin(state: State<App>) -> CommandResult<()> {
-    state.with(|s| s.set_setting("lock.pin", &None::<String>))
+    state.with(|s| s.set_setting("lock.pin", &None::<String>))?;
+    state.lock_inner()?.reset_lockout();
+    Ok(())
 }
 
-/// Try a PIN. After [`FREE_TRIES`] wrong ones each further try waits longer,
-/// doubling up to [`MAX_WAIT_SECS`]. The recovery key always works.
+/// Try a PIN. After [`lockout::FREE_TRIES`] wrong ones each further try waits longer,
+/// doubling up to [`lockout::MAX_WAIT_SECS`]. The recovery key always works.
 #[tauri::command]
 fn unlock_pin(state: State<App>, pin: String) -> CommandResult<bool> {
     let ok = state.lock_inner()?.try_pin(&pin, now())?;
@@ -292,17 +312,28 @@ fn unlock_pin(state: State<App>, pin: String) -> CommandResult<bool> {
     Ok(ok)
 }
 
-/// Wait before the next PIN try after `wrong` wrong ones in a row: none for
-/// the first [`FREE_TRIES`], then 30 s doubling up to [`MAX_WAIT_SECS`].
-fn pin_wait(wrong: u32) -> Option<SignedDuration> {
-    let extra = wrong.checked_sub(FREE_TRIES)?;
-    Some(SignedDuration::from_secs(
-        (30i64 << extra.min(10)).min(MAX_WAIT_SECS),
-    ))
-}
-
 impl Inner {
+    /// Keep the lockout in `path` from now on, starting from what is there.
+    fn resume_lockout(&mut self, path: PathBuf, now: Timestamp) {
+        let kept = Lockout::load(&path, now);
+        self.wrong_pins = kept.wrong;
+        self.wait_until = kept.until_ts();
+        self.lockout_file = Some(path);
+    }
+
+    /// Forget the wrong count and wait, here and on disk.
+    fn reset_lockout(&mut self) {
+        self.wrong_pins = 0;
+        self.wait_until = None;
+        if let Some(p) = &self.lockout_file {
+            let _ = lockout::clear(p);
+        }
+    }
+
     /// Check a PIN, keeping count of wrong ones. Unlocks on a match.
+    ///
+    /// The raised count is written to disk *before* the PIN is checked, so
+    /// ending the app mid-try gains no free guess; a right PIN then clears it.
     fn try_pin(&mut self, pin: &str, now: Timestamp) -> CommandResult<bool> {
         if let Some(t) = self.wait_until
             && t > now
@@ -317,14 +348,18 @@ impl Inner {
             .as_ref()
             .and_then(|s| get::<String>(s, "lock.pin"))
             .ok_or("No PIN is set.")?;
+        let next = Lockout::after(self.wrong_pins.saturating_add(1), now);
+        if let Some(p) = &self.lockout_file {
+            next.save(p)
+                .map_err(|_| "Could not record this try, so it was not made.")?;
+        }
         if keys::pin_check(pin, &hash) {
             self.locked = false;
-            self.wrong_pins = 0;
-            self.wait_until = None;
+            self.reset_lockout();
             return Ok(true);
         }
-        self.wrong_pins += 1;
-        self.wait_until = pin_wait(self.wrong_pins).map(|d| now + d);
+        self.wrong_pins = next.wrong;
+        self.wait_until = next.until_ts();
         Ok(false)
     }
 }
@@ -479,6 +514,7 @@ pub fn run() {
             let state = app.state::<App>();
             state.open(&handle);
             state.maintain();
+            security::apply_at_launch(&handle);
             #[cfg(desktop)]
             upkeep_loop(handle);
             Ok(())
@@ -497,6 +533,8 @@ pub fn run() {
             lock,
             get_setting,
             put_setting,
+            security::security_status,
+            security::set_block_capture,
             data::backups,
             data::set_backup_folder,
             data::backup_now,
@@ -546,6 +584,7 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use jiff::SignedDuration;
 
     fn with_pin(pin: &str) -> Inner {
         let store = Store::memory().unwrap();
@@ -560,17 +599,90 @@ mod tests {
         }
     }
 
+    /// The app closed and opened again: same store and PIN, new `Inner`
+    /// that reads the lockout file the way `App::open` does.
+    fn restart(old: Inner, path: &std::path::Path, now: Timestamp) -> Inner {
+        let mut inner = Inner {
+            store: old.store,
+            locked: true,
+            ..Inner::default()
+        };
+        inner.resume_lockout(path.to_owned(), now);
+        inner
+    }
+
     #[test]
-    fn waits_grow_after_five_wrong_pins_and_stop_at_fifteen_minutes() {
-        assert_eq!(pin_wait(4), None);
-        assert_eq!(pin_wait(5), Some(SignedDuration::from_secs(30)));
-        assert_eq!(pin_wait(6), Some(SignedDuration::from_secs(60)));
-        assert_eq!(pin_wait(9), Some(SignedDuration::from_secs(480)));
-        assert_eq!(pin_wait(10), Some(SignedDuration::from_secs(MAX_WAIT_SECS)));
-        assert_eq!(
-            pin_wait(500),
-            Some(SignedDuration::from_secs(MAX_WAIT_SECS))
-        );
+    fn wrong_pins_and_the_wait_survive_a_restart() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(lockout::FILE);
+        let t0: Timestamp = "2026-10-29T10:00:00Z".parse().unwrap();
+        let mut inner = with_pin("2468");
+        inner.lockout_file = Some(path.clone());
+        for _ in 0..5 {
+            assert_eq!(inner.try_pin("1111", t0), Ok(false));
+        }
+        assert!(path.exists());
+        // Restart ten seconds later: still waiting, even for the right PIN.
+        let t1 = t0 + SignedDuration::from_secs(10);
+        let mut reborn = restart(inner, &path, t1);
+        assert_eq!(reborn.wrong_pins, 5);
+        let e = reborn.try_pin("2468", t1).unwrap_err();
+        assert!(e.contains("Try again in 21 seconds"), "{e}");
+        assert!(reborn.locked);
+        // The next wrong try after the wait is the sixth: a 60 s wait,
+        // and that survives another restart.
+        let t2 = t0 + SignedDuration::from_secs(31);
+        assert_eq!(reborn.try_pin("1111", t2), Ok(false));
+        let mut again = restart(reborn, &path, t2);
+        assert_eq!(again.wrong_pins, 6);
+        let e = again.try_pin("2468", t2).unwrap_err();
+        assert!(e.contains("Try again in 61 seconds"), "{e}");
+        // After the wait the right PIN opens it and clears the file.
+        let t3 = t2 + SignedDuration::from_secs(61);
+        assert_eq!(again.try_pin("2468", t3), Ok(true));
+        assert!(!path.exists());
+        assert_eq!(restart(again, &path, t3).wrong_pins, 0);
+    }
+
+    #[test]
+    fn a_try_is_counted_before_the_pin_is_checked() {
+        // Count and wait are on disk once the try has been recorded, so ending
+        // the app during the check gains no free guess. Here the right PIN is
+        // used: the record is made, then cleared on success.
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(lockout::FILE);
+        let t0: Timestamp = "2026-10-29T10:00:00Z".parse().unwrap();
+        let mut inner = with_pin("2468");
+        inner.lockout_file = Some(path.clone());
+        assert_eq!(inner.try_pin("1111", t0), Ok(false));
+        let kept = Lockout::load(&path, t0);
+        assert_eq!((kept.wrong, kept.until), (1, None));
+        assert_eq!(inner.try_pin("2468", t0), Ok(true));
+        assert!(!path.exists());
+    }
+
+    #[test]
+    fn a_try_that_cannot_be_recorded_is_refused() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut inner = with_pin("2468");
+        // The folder does not exist, so nothing can be written there.
+        inner.lockout_file = Some(dir.path().join("gone").join(lockout::FILE));
+        let e = inner.try_pin("2468", Timestamp::now()).unwrap_err();
+        assert!(e.contains("not made"), "{e}");
+        assert!(inner.locked);
+    }
+
+    #[test]
+    fn changing_or_removing_the_pin_clears_the_count() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(lockout::FILE);
+        let mut inner = with_pin("2468");
+        inner.lockout_file = Some(path.clone());
+        inner.try_pin("1111", Timestamp::now()).unwrap();
+        assert!(path.exists());
+        inner.reset_lockout();
+        assert!(!path.exists());
+        assert_eq!((inner.wrong_pins, inner.wait_until), (0, None));
     }
 
     #[test]

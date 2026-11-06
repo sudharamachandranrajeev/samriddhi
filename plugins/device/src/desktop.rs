@@ -148,6 +148,22 @@ impl<R: Runtime> Device<R> {
     }
 }
 
+impl<R: Runtime> Device<R> {
+    /// Blocking screenshots is an Android window flag; nothing to do here.
+    pub fn supports_capture_block(&self) -> bool {
+        false
+    }
+
+    pub fn set_capture_block(&self, _on: bool) -> Result<()> {
+        Ok(())
+    }
+
+    /// Root hints are an Android check; `None` means not checkable here.
+    pub fn root_hints(&self) -> Result<Option<Vec<String>>> {
+        Ok(None)
+    }
+}
+
 /// Write a file only the current user can read.
 fn write_private(path: &Path, text: &str) -> Result<()> {
     if let Some(dir) = path.parent() {
@@ -171,4 +187,21 @@ fn write_private(path: &Path, text: &str) -> Result<()> {
     std::fs::write(&tmp, text)?;
     std::fs::rename(&tmp, path)?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tauri::test::MockRuntime;
+
+    #[test]
+    fn off_android_the_hooks_do_nothing_and_report_nothing() {
+        let d = Device::<MockRuntime> {
+            keyring: None,
+            _r: PhantomData,
+        };
+        assert!(!d.supports_capture_block());
+        assert!(d.set_capture_block(true).is_ok());
+        assert_eq!(d.root_hints().unwrap(), None);
+    }
 }

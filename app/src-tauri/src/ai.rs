@@ -1,17 +1,19 @@
 //! Bring-your-own AI narration: an OpenAI-compatible chat endpoint the user
-//! runs themselves ("local": this computer or their own network) or a cloud
-//! one with their own key ("cloud": https only). Off by default.
+//! runs themselves ("local": this computer or their own network), a cloud
+//! one with their own key ("cloud": https only), or Anthropic's Messages API
+//! with their own key ("anthropic": https only). Off by default.
 //!
 //! The flow is fixed: `ai_preview` builds the rounded, nameless digest
 //! (see `samriddhi_core::digest`) and returns the exact text; only
 //! `ai_send`, called with that same text, sends it, once. The key lives
-//! only in the OS keyring (service `dev.brahma.samriddhi.ai`), is sent only
-//! to a cloud endpoint over https, and never appears in an error. The
+//! only in the OS keyring (service `dev.brahma.samriddhi.ai`) or, on Android,
+//! encrypted by its own Android Keystore key, is sent only to a cloud or
+//! Anthropic endpoint over https, only in a header, and never appears in an
+//! error. The
 //! model's answer is plain text to show; it never becomes a step or an
 //! action.
 
 use std::net::{Ipv4Addr, Ipv6Addr};
-#[cfg(desktop)]
 use std::time::Duration;
 
 use samriddhi_core::digest::{NARRATOR_SYSTEM_PROMPT, digest_text};
@@ -26,6 +28,11 @@ use crate::{App, CommandResult, get, now};
 pub const SETTING: &str = "ai.settings";
 /// Ollama's OpenAI-compatible endpoint on its default port.
 pub const LOCAL_SUGGESTION: &str = "http://localhost:11434/v1";
+/// Anthropic's API address, and the model suggested for it (the user can
+/// type any model id).
+pub const ANTHROPIC_SUGGESTION: &str = "https://api.anthropic.com";
+pub const ANTHROPIC_DEFAULT_MODEL: &str = "claude-sonnet-5-5";
+const ANTHROPIC_VERSION: &str = "2023-06-01";
 /// The most the digest text may be.
 pub const MAX_PROMPT_BYTES: usize = 16 * 1024;
 /// The most of the model's answer that is read.
@@ -33,9 +40,7 @@ pub const MAX_REPLY_BYTES: usize = 256 * 1024;
 /// The most of the model's answer that is shown.
 pub const MAX_REPLY_CHARS: usize = 6_000;
 pub const MAX_TOKENS: u32 = 600;
-#[cfg(desktop)]
 pub const TIMEOUT: Duration = Duration::from_secs(90);
-#[cfg(desktop)]
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 const MAX_ENDPOINT: usize = 300;
 const MAX_MODEL: usize = 100;
@@ -49,6 +54,8 @@ pub enum Provider {
     Local,
     /// A cloud endpoint with the user's own key; https only.
     Cloud,
+    /// Anthropic's Messages API with the user's own key; https only.
+    Anthropic,
 }
 
 /// The AI settings, without the key. Off by default.
@@ -138,11 +145,11 @@ pub fn problem(s: &AiSettings, key_set: bool) -> Option<String> {
                 .into(),
         ),
         Provider::Local => None,
-        Provider::Cloud if u.scheme() != "https" => {
+        Provider::Cloud | Provider::Anthropic if u.scheme() != "https" => {
             Some("Cloud endpoints must use https://.".into())
         }
-        Provider::Cloud if !key_set => Some("Add your API key.".into()),
-        Provider::Cloud => None,
+        Provider::Cloud | Provider::Anthropic if !key_set => Some("Add your API key.".into()),
+        Provider::Cloud | Provider::Anthropic => None,
     }
 }
 
@@ -157,17 +164,29 @@ pub fn check_key(key: &str) -> CommandResult<String> {
     Ok(k.to_owned())
 }
 
+/// How the key goes with the request: always a header, never the body or URL.
+pub enum Credential {
+    /// `Authorization: Bearer <key>` (OpenAI-compatible endpoints).
+    Bearer(String),
+    /// `x-api-key: <key>` (Anthropic).
+    ApiKey(String),
+}
+
 /// A chat request ready to post. Deliberately not `Debug`: it may hold the key.
 pub struct ChatRequest {
     pub url: String,
-    pub bearer: Option<String>,
+    pub credential: Option<Credential>,
+    /// Fixed headers that are not secret.
+    pub headers: Vec<(&'static str, &'static str)>,
     pub body: Vec<u8>,
+    pub provider: Provider,
     /// Sent to this computer or the user's own network.
     pub local: bool,
 }
 
-/// The OpenAI-compatible request for `user`, the previewed text. The key
-/// goes only to a cloud endpoint, only in the Authorization header.
+/// The request for `user`, the previewed text: OpenAI-compatible chat, or
+/// Anthropic's Messages API. The key goes only to a cloud or Anthropic
+/// endpoint, only in a header.
 pub fn chat_request(
     s: &AiSettings,
     key: Option<&str>,
@@ -180,50 +199,114 @@ pub fn chat_request(
     if user.len() > MAX_PROMPT_BYTES {
         return Err("The summary is too long to send.".into());
     }
-    let body = json!({
-        "model": s.model.trim(),
-        "max_tokens": MAX_TOKENS,
-        "stream": false,
-        "messages": [
-            { "role": "system", "content": system },
-            { "role": "user", "content": user },
-        ],
+    let base = s.endpoint.trim().trim_end_matches('/');
+    let (url, body, headers) = match s.provider {
+        Provider::Anthropic => (
+            // The base may be given with or without its /v1.
+            format!(
+                "{}/messages",
+                if base.ends_with("/v1") {
+                    base.to_owned()
+                } else {
+                    format!("{base}/v1")
+                }
+            ),
+            json!({
+                "model": s.model.trim(),
+                "max_tokens": MAX_TOKENS,
+                "system": system,
+                "messages": [{ "role": "user", "content": user }],
+            }),
+            vec![("anthropic-version", ANTHROPIC_VERSION)],
+        ),
+        Provider::Local | Provider::Cloud => (
+            format!("{base}/chat/completions"),
+            json!({
+                "model": s.model.trim(),
+                "max_tokens": MAX_TOKENS,
+                "stream": false,
+                "messages": [
+                    { "role": "system", "content": system },
+                    { "role": "user", "content": user },
+                ],
+            }),
+            Vec::new(),
+        ),
+    };
+    let credential = key.map(str::to_owned).and_then(|k| match s.provider {
+        Provider::Cloud => Some(Credential::Bearer(k)),
+        Provider::Anthropic => Some(Credential::ApiKey(k)),
+        Provider::Local => None,
     });
     Ok(ChatRequest {
-        url: format!(
-            "{}/chat/completions",
-            s.endpoint.trim().trim_end_matches('/')
-        ),
-        bearer: match s.provider {
-            Provider::Cloud => key.map(str::to_owned),
-            Provider::Local => None,
-        },
+        url,
+        credential,
+        headers,
+        provider: s.provider,
         body: serde_json::to_vec(&body).map_err(|_| "Could not prepare the request.")?,
         local: s.provider == Provider::Local,
     })
 }
 
-/// The model's answer from an OpenAI-compatible reply. Errors give the
-/// status only: a provider's error body can echo the request.
-pub fn parse_reply(status: u16, body: &[u8]) -> CommandResult<String> {
+/// The model's answer from a reply. Errors give the status only: a
+/// provider's error body can echo the request.
+pub fn parse_reply(provider: Provider, status: u16, body: &[u8]) -> CommandResult<String> {
     if status != 200 {
         return Err(format!("The model endpoint answered with HTTP {status}."));
     }
     let bad = || "The model's answer was not in the expected format.".to_string();
     let v: Value = serde_json::from_slice(body).map_err(|_| bad())?;
-    let text = v["choices"][0]["message"]["content"]
-        .as_str()
-        .ok_or_else(bad)?
-        .trim();
+    let joined;
+    let text = match provider {
+        Provider::Anthropic => {
+            // A message whose content is a list of typed blocks; the text
+            // blocks are the answer, other kinds are skipped.
+            if v["type"] != "message" || v["role"] != "assistant" {
+                return Err(bad());
+            }
+            if v["stop_reason"] == "refusal" {
+                return Err("The model declined to answer.".into());
+            }
+            let blocks = v["content"].as_array().ok_or_else(bad)?;
+            let mut text = String::new();
+            for b in blocks {
+                if b["type"].as_str().ok_or_else(bad)? == "text" {
+                    text.push_str(b["text"].as_str().ok_or_else(bad)?);
+                }
+            }
+            joined = text;
+            joined.trim()
+        }
+        Provider::Local | Provider::Cloud => v["choices"][0]["message"]["content"]
+            .as_str()
+            .ok_or_else(bad)?
+            .trim(),
+    };
     if text.is_empty() {
         return Err("The model gave an empty answer.".into());
     }
     Ok(text.chars().take(MAX_REPLY_CHARS).collect())
 }
 
+/// Desktop trusts the OS certificate store. On Android, reqwest's own verifier
+/// needs a Java helper this app does not bundle, so phones trust the bundled
+/// Mozilla roots instead (a private CA on an https endpoint will not work there).
+#[cfg(not(target_os = "android"))]
+fn tls_roots(b: reqwest::ClientBuilder) -> reqwest::ClientBuilder {
+    b
+}
+
+#[cfg(target_os = "android")]
+fn tls_roots(b: reqwest::ClientBuilder) -> reqwest::ClientBuilder {
+    b.tls_certs_only(
+        webpki_root_certs::TLS_SERVER_ROOT_CERTS
+            .iter()
+            .filter_map(|c| reqwest::Certificate::from_der(c.as_ref()).ok()),
+    )
+}
+
 /// Post the request and read at most [`MAX_REPLY_BYTES`] of the answer.
 /// No redirects are followed; a local endpoint is reached without proxies.
-#[cfg(desktop)]
 pub async fn post(req: ChatRequest, timeout: Duration) -> CommandResult<String> {
     fn net(e: reqwest::Error, timeout: Duration) -> String {
         // Never the error's own text: keep messages fixed and key-free.
@@ -242,24 +325,31 @@ pub async fn post(req: ChatRequest, timeout: Duration) -> CommandResult<String> 
         // Fails only if another thread installed one first, which is fine.
         let _ = rustls::crypto::ring::default_provider().install_default();
     }
-    let mut builder = reqwest::Client::builder()
+    let builder = reqwest::Client::builder()
         .timeout(timeout)
         .connect_timeout(CONNECT_TIMEOUT.min(timeout))
         .redirect(reqwest::redirect::Policy::none())
         .user_agent(concat!("Samriddhi/", env!("CARGO_PKG_VERSION")));
-    if req.local {
-        builder = builder.no_proxy();
-    }
-    let client = builder
+    let builder = if req.local {
+        builder.no_proxy()
+    } else {
+        builder
+    };
+    let client = tls_roots(builder)
         .build()
         .map_err(|_| "Could not set up the connection.".to_string())?;
     let mut rb = client
         .post(&req.url)
         .header(reqwest::header::CONTENT_TYPE, "application/json")
         .body(req.body);
-    if let Some(k) = &req.bearer {
-        rb = rb.bearer_auth(k);
+    for (name, value) in &req.headers {
+        rb = rb.header(*name, *value);
     }
+    rb = match &req.credential {
+        Some(Credential::Bearer(k)) => rb.bearer_auth(k),
+        Some(Credential::ApiKey(k)) => rb.header("x-api-key", k),
+        None => rb,
+    };
     let mut res = rb.send().await.map_err(|e| net(e, timeout))?;
     let status = res.status().as_u16();
     let mut body = Vec::new();
@@ -269,7 +359,7 @@ pub async fn post(req: ChatRequest, timeout: Duration) -> CommandResult<String> 
         }
         body.extend_from_slice(&chunk);
     }
-    parse_reply(status, &body)
+    parse_reply(req.provider, status, &body)
 }
 
 /// A preview waiting to be sent: the text exactly as shown, and the
@@ -302,12 +392,15 @@ pub struct AiSettingsView {
     settings: AiSettings,
     /// Only whether a key is kept, never the key.
     key_set: bool,
-    /// Why the keyring cannot be read, if it cannot.
+    /// Why the keyring (or Android Keystore) cannot be read, if it cannot.
     key_problem: Option<String>,
     /// Why the settings cannot be used yet, if they cannot.
     problem: Option<String>,
     local_suggestion: &'static str,
-    /// This build can send (desktop); phones can preview only for now.
+    anthropic_suggestion: &'static str,
+    /// The model id offered for Anthropic; the user can type any other.
+    anthropic_model: &'static str,
+    /// Every build can send. Kept so the screens need not guess.
     can_send: bool,
 }
 
@@ -324,7 +417,9 @@ pub fn ai_settings_get(app: AppHandle, state: State<App>) -> CommandResult<AiSet
         key_set,
         key_problem,
         local_suggestion: LOCAL_SUGGESTION,
-        can_send: cfg!(desktop),
+        anthropic_suggestion: ANTHROPIC_SUGGESTION,
+        anthropic_model: ANTHROPIC_DEFAULT_MODEL,
+        can_send: true,
     })
 }
 
@@ -336,11 +431,20 @@ pub fn ai_settings_set(
     settings: AiSettings,
 ) -> CommandResult<()> {
     check_shape(&settings)?;
-    let settings = AiSettings {
+    let mut settings = AiSettings {
         endpoint: settings.endpoint.trim().to_owned(),
         model: settings.model.trim().to_owned(),
         ..settings
     };
+    if settings.provider == Provider::Anthropic {
+        // A blank box means the suggested address and model.
+        if settings.endpoint.is_empty() {
+            settings.endpoint = ANTHROPIC_SUGGESTION.into();
+        }
+        if settings.model.is_empty() {
+            settings.model = ANTHROPIC_DEFAULT_MODEL.into();
+        }
+    }
     if settings.enabled {
         let key_set = app.device().ai_key().ok().flatten().is_some();
         if let Some(p) = problem(&settings, key_set) {
@@ -352,7 +456,8 @@ pub fn ai_settings_set(
     Ok(())
 }
 
-/// Keep the user's cloud API key in the OS keyring. Only while unlocked.
+/// Keep the user's cloud API key in the OS keyring (Android: encrypted by a
+/// Keystore key). Only while unlocked.
 #[tauri::command]
 pub fn ai_key_set(app: AppHandle, state: State<App>, key: String) -> CommandResult<()> {
     let key = check_key(&key)?;
@@ -427,19 +532,13 @@ pub async fn ai_send(app: AppHandle, state: State<'_, App>, text: String) -> Com
         return Err("AI narration is off.".into());
     }
     let key = match settings.provider {
-        Provider::Cloud => app.device().ai_key().map_err(|e| e.to_string())?,
+        Provider::Cloud | Provider::Anthropic => {
+            app.device().ai_key().map_err(|e| e.to_string())?
+        }
         Provider::Local => None,
     };
     let req = chat_request(&settings, key.as_deref(), NARRATOR_SYSTEM_PROMPT, &text)?;
-    #[cfg(desktop)]
-    {
-        post(req, TIMEOUT).await
-    }
-    #[cfg(mobile)]
-    {
-        let _ = req;
-        Err("Sending to an AI model is not available on phones yet.".into())
-    }
+    post(req, TIMEOUT).await
 }
 
 #[cfg(test)]
@@ -548,7 +647,10 @@ mod tests {
         )
         .unwrap();
         assert_eq!(r.url, "http://localhost:11434/v1/chat/completions");
-        assert!(r.bearer.is_none(), "a key never goes to a local endpoint");
+        assert!(
+            r.credential.is_none(),
+            "a key never goes to a local endpoint"
+        );
         assert!(r.local);
         let body: Value = serde_json::from_slice(&r.body).unwrap();
         assert_eq!(body["messages"][0]["role"], "system");
@@ -566,7 +668,7 @@ mod tests {
             "u",
         )
         .unwrap();
-        assert_eq!(r.bearer.as_deref(), Some("sk-test-123"));
+        assert!(matches!(&r.credential, Some(Credential::Bearer(k)) if k == "sk-test-123"));
         assert!(!String::from_utf8(r.body).unwrap().contains("sk-test-123"));
         assert!(!r.local);
         // No key, no request.
@@ -578,19 +680,22 @@ mod tests {
     #[test]
     fn replies_are_read_strictly_and_errors_never_echo_the_body() {
         let ok = json!({ "choices": [{ "message": { "content": " Hello. " } }] }).to_string();
-        assert_eq!(parse_reply(200, ok.as_bytes()).unwrap(), "Hello.");
-        let e = parse_reply(500, b"echo of your prompt: SECRET").unwrap_err();
+        assert_eq!(
+            parse_reply(Provider::Cloud, 200, ok.as_bytes()).unwrap(),
+            "Hello."
+        );
+        let e = parse_reply(Provider::Cloud, 500, b"echo of your prompt: SECRET").unwrap_err();
         assert!(e.contains("500") && !e.contains("SECRET"), "{e}");
-        assert!(parse_reply(200, br#"{"nope":1}"#).is_err());
-        assert!(parse_reply(200, b"not json").is_err());
+        assert!(parse_reply(Provider::Cloud, 200, br#"{"nope":1}"#).is_err());
+        assert!(parse_reply(Provider::Cloud, 200, b"not json").is_err());
         let empty = json!({ "choices": [{ "message": { "content": "  " } }] }).to_string();
         assert!(
-            parse_reply(200, empty.as_bytes())
+            parse_reply(Provider::Cloud, 200, empty.as_bytes())
                 .unwrap_err()
                 .contains("empty")
         );
         let long = json!({ "choices": [{ "message": { "content": "y".repeat(10_000) } }] });
-        let text = parse_reply(200, long.to_string().as_bytes()).unwrap();
+        let text = parse_reply(Provider::Cloud, 200, long.to_string().as_bytes()).unwrap();
         assert_eq!(text.chars().count(), MAX_REPLY_CHARS);
     }
 
@@ -618,8 +723,134 @@ mod tests {
         assert!(take_matching(&mut None, "", &s).is_err());
     }
 
+    fn anthropic(endpoint: &str) -> AiSettings {
+        AiSettings {
+            provider: Provider::Anthropic,
+            model: ANTHROPIC_DEFAULT_MODEL.into(),
+            ..local(endpoint)
+        }
+    }
+
+    #[test]
+    fn anthropic_needs_https_and_a_key_and_its_default_model_is_set() {
+        assert_eq!(ANTHROPIC_DEFAULT_MODEL, "claude-sonnet-5-5");
+        let a = anthropic(ANTHROPIC_SUGGESTION);
+        assert!(problem(&a, false).unwrap().contains("API key"));
+        assert_eq!(problem(&a, true), None);
+        assert!(
+            problem(&anthropic("http://api.example.com"), true)
+                .unwrap()
+                .contains("https")
+        );
+        // Not a local provider: a private address is no excuse for plain http.
+        assert!(problem(&anthropic("http://localhost:1/v1"), true).is_some());
+        assert_eq!(
+            serde_json::to_string(&Provider::Anthropic).unwrap(),
+            "\"anthropic\""
+        );
+    }
+
+    #[test]
+    fn anthropic_request_has_the_messages_shape_and_the_key_only_in_a_header() {
+        let key = "sk-ant-test-123";
+        for base in [
+            "https://api.anthropic.com",
+            "https://api.anthropic.com/",
+            "https://api.anthropic.com/v1",
+        ] {
+            let r = chat_request(&anthropic(base), Some(key), "sys prompt", "digest text").unwrap();
+            assert_eq!(r.url, "https://api.anthropic.com/v1/messages", "{base}");
+        }
+        let r = chat_request(
+            &anthropic(ANTHROPIC_SUGGESTION),
+            Some(key),
+            "sys prompt",
+            "digest text",
+        )
+        .unwrap();
+        assert!(matches!(&r.credential, Some(Credential::ApiKey(k)) if k == key));
+        assert_eq!(r.headers, vec![("anthropic-version", "2023-06-01")]);
+        assert!(!r.local);
+        let body: Value = serde_json::from_slice(&r.body).unwrap();
+        assert_eq!(body["model"], "claude-sonnet-5-5");
+        assert_eq!(body["max_tokens"], MAX_TOKENS);
+        assert_eq!(body["system"], "sys prompt");
+        assert_eq!(body["messages"].as_array().unwrap().len(), 1);
+        assert_eq!(body["messages"][0]["role"], "user");
+        assert_eq!(body["messages"][0]["content"], "digest text");
+        assert!(body.get("stream").is_none());
+        assert!(!String::from_utf8(r.body).unwrap().contains(key));
+        assert!(!r.url.contains(key));
+        // No key, no request. A key is never turned into a bearer here.
+        assert!(chat_request(&anthropic(ANTHROPIC_SUGGESTION), None, "s", "u").is_err());
+    }
+
+    #[test]
+    fn anthropic_replies_are_read_strictly() {
+        let p = Provider::Anthropic;
+        let ok = |content: Value| {
+            json!({ "type": "message", "role": "assistant", "content": content }).to_string()
+        };
+        let two = ok(json!([
+            { "type": "text", "text": " Hello " },
+            { "type": "thinking", "thinking": "hidden" },
+            { "type": "text", "text": "world. " },
+        ]));
+        assert_eq!(parse_reply(p, 200, two.as_bytes()).unwrap(), "Hello world.");
+        // Error bodies are never echoed.
+        let e = parse_reply(p, 401, br#"{"error":"bad key sk-ant-test-123"}"#).unwrap_err();
+        assert!(e.contains("401") && !e.contains("sk-ant"), "{e}");
+        // Wrong shapes.
+        for bad in [
+            br#"{"choices":[{"message":{"content":"x"}}]}"#.to_vec(),
+            ok(json!("just a string")).into_bytes(),
+            ok(json!([{ "type": "text" }])).into_bytes(),
+            ok(json!([{ "text": "no type" }])).into_bytes(),
+            json!({ "type": "error", "content": [{ "type": "text", "text": "x" }] })
+                .to_string()
+                .into_bytes(),
+            json!({ "type": "message", "role": "user", "content": [{ "type": "text", "text": "x" }] })
+                .to_string()
+                .into_bytes(),
+            b"not json".to_vec(),
+        ] {
+            assert!(parse_reply(p, 200, &bad).is_err(), "{}", String::from_utf8_lossy(&bad));
+        }
+        // No text at all, or only blank text.
+        assert!(
+            parse_reply(p, 200, ok(json!([])).as_bytes())
+                .unwrap_err()
+                .contains("empty")
+        );
+        assert!(
+            parse_reply(
+                p,
+                200,
+                ok(json!([{ "type": "text", "text": "  " }])).as_bytes()
+            )
+            .is_err()
+        );
+        // A refusal is a plain message, not text to show.
+        let refused = json!({ "type": "message", "role": "assistant", "stop_reason": "refusal",
+            "content": [{ "type": "text", "text": "x" }] })
+        .to_string();
+        assert!(
+            parse_reply(p, 200, refused.as_bytes())
+                .unwrap_err()
+                .contains("declined")
+        );
+        // Long answers are cut like the others.
+        let long = ok(json!([{ "type": "text", "text": "y".repeat(10_000) }]));
+        assert_eq!(
+            parse_reply(p, 200, long.as_bytes())
+                .unwrap()
+                .chars()
+                .count(),
+            MAX_REPLY_CHARS
+        );
+    }
+
     /// A one-shot HTTP server on loopback: no real network.
-    #[cfg(desktop)]
     mod wire {
         use super::*;
         use std::io::{Read, Write};
@@ -697,12 +928,63 @@ mod tests {
                 Duration::ZERO,
             );
             let req = ChatRequest {
-                bearer: Some("sk-test-123".into()),
+                credential: Some(Credential::Bearer("sk-test-123".into())),
                 ..chat_request(&local(&url), None, "s", "u").unwrap()
             };
             let e = send(req, TIMEOUT).unwrap_err();
             assert!(e.contains("401") && !e.contains("sk-test-123"), "{e}");
             assert!(rx.recv().unwrap().contains("Bearer sk-test-123"));
+        }
+
+        #[test]
+        fn an_anthropic_round_trip_sends_headers_and_never_the_key_in_the_body() {
+            let reply = json!({ "type": "message", "role": "assistant",
+                "content": [{ "type": "text", "text": "Plain plan." }] });
+            let (url, rx) = serve("200 OK", reply.to_string(), Duration::ZERO);
+            // The mock is plain http on loopback, so build the request by hand
+            // from an anthropic one: same body, headers and credential.
+            let req = ChatRequest {
+                url: format!("{url}/messages"),
+                local: true,
+                ..chat_request(
+                    &anthropic(ANTHROPIC_SUGGESTION),
+                    Some("sk-ant-test-123"),
+                    "sys",
+                    "Goal 1",
+                )
+                .unwrap()
+            };
+            assert_eq!(send(req, TIMEOUT).unwrap(), "Plain plan.");
+            let seen = rx.recv().unwrap();
+            let lower = seen.to_ascii_lowercase();
+            assert!(seen.starts_with("POST /v1/messages "), "{seen}");
+            assert!(lower.contains("x-api-key: sk-ant-test-123"));
+            assert!(lower.contains("anthropic-version: 2023-06-01"));
+            assert!(!lower.contains("authorization"));
+            let body = &seen[seen.find("\r\n\r\n").unwrap() + 4..];
+            assert!(!body.contains("sk-ant") && body.contains("Goal 1"));
+        }
+
+        #[test]
+        fn an_anthropic_error_never_echoes_the_key() {
+            let (url, _rx) = serve(
+                "401 Unauthorized",
+                "invalid x-api-key sk-ant-test-123".into(),
+                Duration::ZERO,
+            );
+            let req = ChatRequest {
+                url: format!("{url}/messages"),
+                local: true,
+                ..chat_request(
+                    &anthropic(ANTHROPIC_SUGGESTION),
+                    Some("sk-ant-test-123"),
+                    "s",
+                    "u",
+                )
+                .unwrap()
+            };
+            let e = send(req, TIMEOUT).unwrap_err();
+            assert!(e.contains("401") && !e.contains("sk-ant"), "{e}");
         }
 
         #[test]

@@ -24,5 +24,8 @@ zbus-secret-service-keyring-store = { version = "1", features = ["crypto-rust"] 
 keyring-core = "1"
 windows-native-keyring-store = "1"
 
+[dev-dependencies]
+tauri = { version = "2.12.5", features = ["test"] }
+
 [build-dependencies]
 tauri-plugin = { version = "2.7.2", features = ["build"] }
