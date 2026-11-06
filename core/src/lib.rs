@@ -3,14 +3,18 @@
 //! next-best-step engine; accounts and holdings with their import; and the
 //! planning engines (asset classes with dated assumptions, mean-variance
 //! optimiser, per-goal plan, rebalancing, forecast, backtest and the
-//! direct-indexing simulator). No UI; the Tauri shell and tests drive it.
+//! direct-indexing simulator); the deterministic agents that add their
+//! steps to the same feed, and the rounded, nameless digest an AI model may
+//! narrate. No UI; the Tauri shell and tests drive it.
 //!
 //! Safety boundary, kept in code: nothing here moves money, places trades,
 //! calls a data aggregator or sends anything off the device.
 
+pub mod agents;
 pub mod assets;
 pub mod backtest;
 pub mod catalogue;
+pub mod digest;
 pub mod direct_indexing;
 pub mod export;
 pub mod forecast;

@@ -3428,6 +3428,8 @@ name = "samriddhi"
 version = "0.1.0"
 dependencies = [
  "jiff",
+ "reqwest",
+ "rustls",
  "samriddhi-core",
  "serde",
  "serde_json",

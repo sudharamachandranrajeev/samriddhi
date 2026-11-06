@@ -117,14 +117,57 @@ pub fn steps_list(state: State<App>) -> CommandResult<StepsView> {
     })
 }
 
+/// "Later": hidden for 14 days. A step in today's feed is also noted in
+/// the step log.
 #[tauri::command]
 pub fn step_later(state: State<App>, id: String) -> CommandResult<()> {
-    state.with(|s| s.step_later(&id, now()))
+    let t = now();
+    state.with(|s| {
+        s.log_dismissal(&id, t, &Catalogue::builtin())?;
+        s.step_later(&id, t)
+    })
 }
 
 #[tauri::command]
 pub fn step_not_for_me(state: State<App>, id: String, reason: String) -> CommandResult<()> {
-    state.with(|s| s.step_not_for_me(&id, &reason, now()))
+    let t = now();
+    state.with(|s| {
+        s.log_dismissal(&id, t, &Catalogue::builtin())?;
+        s.step_not_for_me(&id, &reason, t)
+    })
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FeedView {
+    /// Rule steps and agent steps, in one order.
+    steps: Vec<Step>,
+    review_due: bool,
+    /// Agents that could not run this time.
+    errors: Vec<String>,
+}
+
+/// The whole feed: the rules' steps and the agents' steps.
+#[tauri::command]
+pub fn feed_list(state: State<App>) -> CommandResult<FeedView> {
+    let cat = Catalogue::builtin();
+    let t = now();
+    state.with(|s| {
+        let feed = s.step_feed(t, &cat)?;
+        Ok(FeedView {
+            steps: feed.steps,
+            review_due: cat.needs_review(steps::today(t)),
+            errors: feed.errors,
+        })
+    })
+}
+
+/// "Accept": records that the user means to do it, in the step log. It
+/// never acts, trades or moves money.
+#[tauri::command]
+pub fn step_accept(state: State<App>, id: String) -> CommandResult<()> {
+    let t = now();
+    state.with(|s| s.accept_step(&id, t, &Catalogue::builtin()).map(|_| ()))
 }
 
 #[tauri::command]

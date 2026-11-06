@@ -110,9 +110,14 @@ export interface RiskAnswer {
 }
 
 export type Effort = 'minutes' | 'hours' | 'ongoing'
+/** Only an `action` without a question can be accepted. */
+export type StepKind = 'action' | 'info' | 'note'
 
 export interface Step {
   id: string
+  /** 'steps' for the rules, or the agent that suggested it ('rebalancing', 'behaviour'...). */
+  origin: string
+  kind: StepKind
   title: string
   why: string
   risk: number
@@ -120,11 +125,53 @@ export interface Step {
   source: string
   asOf: string
   ask: { fact: string } | null
+  /** How far to trust it; every agent step has one. */
+  basis: string | null
+  /** The model disclosure, on steps built on the plan or forecast. Show it with the step. */
+  disclosure: string | null
 }
 
 export interface StepsView {
   steps: Step[]
   reviewDue: boolean
+}
+
+/** The rules' steps and the agents' steps in one order. */
+export interface FeedView {
+  steps: Step[]
+  reviewDue: boolean
+  /** Agents that could not run this time. */
+  errors: string[]
+}
+
+export type AiProvider = 'local' | 'cloud'
+
+/** AI narration settings. The key is never here: it lives in the OS keyring. */
+export interface AiSettings {
+  enabled: boolean
+  provider: AiProvider
+  endpoint: string
+  model: string
+}
+
+export interface AiSettingsView {
+  settings: AiSettings
+  /** Only whether a key is kept, never the key. */
+  keySet: boolean
+  keyProblem: string | null
+  /** Why the settings cannot be used yet. */
+  problem: string | null
+  localSuggestion: string
+  /** False on phones for now: preview only. */
+  canSend: boolean
+}
+
+/** Exactly what `ai_send` would send, for the user to read first. */
+export interface AiPreview {
+  system: string
+  text: string
+  destination: string
+  provider: AiProvider
 }
 
 export type BackupKind = 'daily' | 'manual' | 'preUpdate' | 'beforeRestore' | 'beforeImport'
@@ -233,6 +280,16 @@ export interface Commands {
   step_not_for_me: [{ id: string; reason: string }, null]
   step_restore: [{ id: string }, null]
   steps_dismissed: [Record<string, never>, Dismissal[]]
+  feed_list: [Record<string, never>, FeedView]
+  /** Records intent in the step log only; nothing acts on it. */
+  step_accept: [{ id: string }, null]
+  ai_settings_get: [Record<string, never>, AiSettingsView]
+  ai_settings_set: [{ settings: AiSettings }, null]
+  ai_key_set: [{ key: string }, null]
+  ai_key_clear: [Record<string, never>, null]
+  ai_preview: [Record<string, never>, AiPreview]
+  /** `text` must be exactly the last preview's text. The answer is plain text to show, never markup. */
+  ai_send: [{ text: string }, string]
   export_json: [{ target: string }, null]
   export_csv: [{ folder: string }, string]
   import_pick: [Record<string, never>, ImportPreview | null]

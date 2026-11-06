@@ -44,11 +44,31 @@ pub struct Ask {
     pub fact: String,
 }
 
+/// What a step is. Only an action can be accepted; information and notes
+/// can be put off or turned down like any other step.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum StepKind {
+    /// Something the user could do.
+    Action,
+    /// A figure or result to know about.
+    Info,
+    /// A rule of thumb or a caution.
+    Note,
+}
+
+/// The producer of the rule-based steps, in the feed and the step log.
+pub const RULES_ORIGIN: &str = "steps";
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Step {
     /// Stable, so "Later" and "Not for me" stick to it.
     pub id: String,
+    /// Who suggested it: [`RULES_ORIGIN`] for these rules, or an agent's
+    /// name ("rebalancing", "behaviour"...).
+    pub origin: String,
+    pub kind: StepKind,
     pub title: String,
     pub why: String,
     /// 1 (nothing can be lost) to 5 (could lose much of it).
@@ -58,12 +78,19 @@ pub struct Step {
     pub source: String,
     pub as_of: Date,
     pub ask: Option<Ask>,
+    /// How far to trust it, in plain words. Every agent step has one.
+    pub basis: Option<String>,
+    /// The model disclosure, on every step built on the plan or forecast
+    /// models ([`crate::assets::MODEL_DISCLOSURE`]).
+    pub disclosure: Option<String>,
 }
 
 impl Step {
     fn new(id: impl Into<String>, rule: &Rule, title: String, why: String) -> Step {
         Step {
             id: id.into(),
+            origin: RULES_ORIGIN.into(),
+            kind: StepKind::Action,
             title,
             why,
             risk: 1,
@@ -71,6 +98,8 @@ impl Step {
             source: rule.source.clone(),
             as_of: rule.as_of,
             ask: None,
+            basis: None,
+            disclosure: None,
         }
     }
 

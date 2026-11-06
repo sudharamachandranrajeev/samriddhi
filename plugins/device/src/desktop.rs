@@ -11,6 +11,8 @@ use crate::{DbKey, Error, KeyStorage, Result, from_hex, random_key, to_hex};
 const SERVICE: &str = "dev.brahma.samriddhi.db-key";
 const ACCOUNT: &str = "samriddhi";
 const KEY_FILE: &str = "db.key";
+/// The user's own AI API key: only ever in the OS keyring, never in a file.
+const AI_SERVICE: &str = "dev.brahma.samriddhi.ai";
 
 pub fn init<R: Runtime, C: DeserializeOwned>(
     _app: &AppHandle<R>,
@@ -109,6 +111,40 @@ impl<R: Runtime> Device<R> {
         }
         write_private(&file, &to_hex(key))?;
         Ok(KeyStorage::File)
+    }
+}
+
+impl<R: Runtime> Device<R> {
+    fn ai_entry(&self) -> Result<keyring_core::Entry> {
+        if let Some(why) = &self.keyring {
+            return Err(Error::Keyring(why.clone()));
+        }
+        keyring_core::Entry::new(AI_SERVICE, ACCOUNT).map_err(|e| Error::Keyring(e.to_string()))
+    }
+
+    /// The user's AI API key, if they gave one.
+    pub fn ai_key(&self) -> Result<Option<String>> {
+        match self.ai_entry()?.get_password() {
+            Ok(k) => Ok(Some(k)),
+            Err(keyring_core::Error::NoEntry) => Ok(None),
+            Err(e) => Err(Error::Keyring(e.to_string())),
+        }
+    }
+
+    /// Keep the AI API key in the OS keyring. With no keyring there is no
+    /// fallback file: the key is refused instead.
+    pub fn set_ai_key(&self, key: &str) -> Result<()> {
+        self.ai_entry()?
+            .set_password(key)
+            .map_err(|e| Error::Keyring(e.to_string()))
+    }
+
+    /// Forget the AI API key.
+    pub fn clear_ai_key(&self) -> Result<()> {
+        match self.ai_entry()?.delete_credential() {
+            Ok(()) | Err(keyring_core::Error::NoEntry) => Ok(()),
+            Err(e) => Err(Error::Keyring(e.to_string())),
+        }
     }
 }
 

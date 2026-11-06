@@ -63,6 +63,20 @@ impl<R: Runtime> Device<R> {
         Ok(KeyStorage::AndroidKeystore)
     }
 
+    /// AI keys are not kept on phones yet (no Keystore entry for them), so
+    /// only a local model without a key can be set up there.
+    pub fn ai_key(&self) -> Result<Option<String>> {
+        Ok(None)
+    }
+
+    pub fn set_ai_key(&self, _key: &str) -> Result<()> {
+        Err(Error::Unsupported)
+    }
+
+    pub fn clear_ai_key(&self) -> Result<()> {
+        Ok(())
+    }
+
     /// GET a page from Samriddhi's GitHub releases (Kotlin refuses any other address).
     pub fn fetch_text(&self, url: &str) -> Result<String> {
         #[derive(Deserialize)]

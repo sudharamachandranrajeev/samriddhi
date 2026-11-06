@@ -8,6 +8,10 @@ pub enum Error {
     KeyDamaged,
     #[error("could not keep the database key safe: {0}")]
     Store(String),
+    #[error("the OS keyring could not be used ({0})")]
+    Keyring(String),
+    #[error("this device cannot keep an AI key in a keystore yet")]
+    Unsupported,
     #[error(transparent)]
     Io(#[from] std::io::Error),
     #[cfg(mobile)]

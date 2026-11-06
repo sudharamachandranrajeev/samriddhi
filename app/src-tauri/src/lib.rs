@@ -3,6 +3,7 @@
 //! fingerprint/face on phones), keeps daily backups, and answers the UI's
 //! commands. Local mode only: the core runs in this process.
 
+mod ai;
 mod data;
 mod export;
 mod update;
@@ -48,6 +49,8 @@ struct Inner {
     notice: Option<String>,
     /// An export file read for import, waiting for the user to confirm.
     pending_import: Option<Export>,
+    /// An AI preview the user saw, waiting for them to press send.
+    ai_pending: Option<ai::Pending>,
 }
 
 struct App {
@@ -366,6 +369,9 @@ fn biometric_check(_app: &AppHandle, _reason: &str) -> CommandResult<()> {
 fn lock(state: State<App>) -> CommandResult<bool> {
     let mut inner = state.lock_inner()?;
     inner.locked = inner.store.as_ref().is_some_and(lock_on);
+    if inner.locked {
+        inner.ai_pending = None;
+    }
     Ok(inner.locked)
 }
 
@@ -518,6 +524,14 @@ pub fn run() {
             wealth::step_not_for_me,
             wealth::step_restore,
             wealth::steps_dismissed,
+            wealth::feed_list,
+            wealth::step_accept,
+            ai::ai_settings_get,
+            ai::ai_settings_set,
+            ai::ai_key_set,
+            ai::ai_key_clear,
+            ai::ai_preview,
+            ai::ai_send,
             export::export_json,
             export::export_csv,
             export::export_csv_files,
@@ -630,11 +644,13 @@ mod tests {
         assert!(check_setting("ui.motion", &json!("calm")).is_ok());
         assert!(check_setting("terms.accepted", &json!(true)).is_ok());
         assert!(check_setting("terms.accepted", &json!("yes")).is_err());
+        // AI settings have their own command with its own checks.
         for key in [
             "lock.pin",
             "lock.biometric",
             "backup.folder",
             "recovery.saved",
+            ai::SETTING,
         ] {
             let e = check_setting(key, &json!(true)).unwrap_err();
             assert!(e.contains("not a setting"), "{key}");

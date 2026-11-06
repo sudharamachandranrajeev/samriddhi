@@ -9,8 +9,8 @@
 // updated itself once and sees a newer version.
 
 import type {
-  BackupKind, Backups, CountryTie, Dismissal, Goal, ImportPreview, Profile, RiskAnswer, RiskProfile, RiskQuestion, RollbackPlan, Status,
-  Step, UpdateInfo, UpdateMode, UpdateStatus,
+  AiSettings, AiSettingsView, BackupKind, Backups, CountryTie, Dismissal, Goal, ImportPreview, Profile, RiskAnswer, RiskProfile, RiskQuestion,
+  RollbackPlan, Status, Step, UpdateInfo, UpdateMode, UpdateStatus,
 } from './api.ts'
 import { formatMoney, monthsCovered, roughNetWorth, type Money } from './money.ts'
 
@@ -76,6 +76,8 @@ interface Db {
   goals: Goal[]
   answers: RiskAnswer[]
   dismissed: Dismissal[]
+  /** Step ids accepted (the core hides them for 14 days; here, until reload). */
+  accepted: string[]
   backups: { name: string; kind: BackupKind; bytes: number }[]
   /** A newer version the preview pretends is out (the ?demo=update page). */
   update: UpdateInfo | null
@@ -85,7 +87,7 @@ interface Db {
 }
 
 const fresh = (): Db => ({
-  exists: false, open: false, locked: false, settings: {}, facts: {}, countries: [], goals: [], answers: [], dismissed: [],
+  exists: false, open: false, locked: false, settings: {}, facts: {}, countries: [], goals: [], answers: [], dismissed: [], accepted: [],
   backups: [], pending: null, picked: false, wrong: 0, update: null,
 })
 
@@ -161,7 +163,7 @@ function steps(): Step[] {
   const p = profile()
   const out: Step[] = []
   const step = (id: string, title: string, why: string, extra: Partial<Step> = {}): Step =>
-    ({ id, title, why, risk: 1, effort: 'minutes', source: SRC, asOf: '2026-10-30', ask: null, ...extra })
+    ({ id, origin: 'steps', kind: 'action', title, why, risk: 1, effort: 'minutes', source: SRC, asOf: '2026-10-30', ask: null, basis: null, disclosure: null, ...extra })
   const months = monthsCovered(p.cash, p.costs)
   if (p.cash && p.costs && months !== null && Number(months) < 3) {
     const short = { minor: p.costs.minor * 3 - p.cash.minor, currency: p.cash.currency }
@@ -189,6 +191,29 @@ function steps(): Step[] {
   const hidden = (id: string) => db.dismissed.some((d) => d.stepId === id)
   return out.filter((s) => !hidden(s.id))
 }
+
+const DISCLOSURE = 'This is a model using illustrative assumptions, not financial advice or a guarantee. Past and simulated results do not predict future returns.'
+
+/** A few made-up agent steps, shaped like the core's, once the risk questions are answered. */
+function agentSteps(): Step[] {
+  const p = profile()
+  if (!p.risk) return []
+  const agent = (origin: string, id: string, kind: Step['kind'], title: string, why: string, basis: string, extra: Partial<Step> = {}): Step =>
+    ({ id, origin, kind, title, why, risk: 1, effort: 'minutes', source: 'Generic long-run illustrative figures (synthetic)', asOf: '2026-11-05', ask: null, basis, disclosure: null, ...extra })
+  return [
+    agent('rebalancing', 'rebalance:trades', 'action', 'Rebalance to target',
+      'Sell Equities 9,000 GBP; Buy Bonds 9,000 GBP. Putting new money into the classes that are under target first can do most of this without selling (see Insights). Samriddhi never trades: this is for you to consider.',
+      'Exact arithmetic on the holdings you entered; a threshold rule (a Vanguard-style 3% band), not a market view.',
+      { risk: 2, effort: 'hours', disclosure: DISCLOSURE, asOf: TODAY }),
+    agent('risk-profile', 'risk:band', 'info', `${p.risk.label} risk profile`,
+      `Your answers put you at level ${p.risk.combined} of 5.`, 'Rule-based from your answers; as reliable as those answers are.',
+      { source: 'Your answers to the risk questions', asOf: TODAY }),
+    agent('portfolio', 'portfolio:target', 'info', 'Target allocation', 'Equities 45%, Bonds 40%, Property / REITs 5%, Gold / commodities 5%, Cash 5%.',
+      'Mean-variance optimiser on illustrative long-run assumptions, not market data. Treat it as a starting point.', { disclosure: DISCLOSURE }),
+  ].filter((s) => !db.dismissed.some((d) => d.stepId === s.id) && !db.accepted.includes(s.id))
+}
+
+const AI_OFF: AiSettings = { enabled: false, provider: 'local', endpoint: '', model: '' }
 
 const summary = () => ({
   schema: 1,
@@ -318,6 +343,36 @@ const handlers: Record<string, (a: Args) => unknown> = {
   },
   step_restore: ({ id }) => { needOpen(); db.dismissed = db.dismissed.filter((d) => d.stepId !== id); return null },
   steps_dismissed: () => { needOpen(); return db.dismissed },
+  feed_list: () => {
+    needOpen()
+    const rank = (s: Step) => (s.ask ? 3 : s.kind === 'action' ? (s.origin === 'steps' ? 0 : 1) : s.kind === 'note' ? 2 : 4)
+    const all = [...steps(), ...agentSteps()].filter((s) => !db.accepted.includes(s.id))
+    return { steps: all.sort((a, b) => rank(a) - rank(b)), reviewDue: false, errors: [] }
+  },
+  step_accept: ({ id }) => {
+    needOpen()
+    const s = [...steps(), ...agentSteps()].find((x) => x.id === id)
+    if (!s) throw 'that step is not in your list now'
+    if (s.kind !== 'action' || s.ask) throw 'only a suggested action can be accepted; this one can be put off'
+    db.accepted.push(id)
+    return null
+  },
+  ai_settings_get: (): AiSettingsView => {
+    needOpen()
+    const settings = (db.settings['ai.settings'] as AiSettings | undefined) ?? AI_OFF
+    return { settings, keySet: Boolean(db.settings['ai.keySet']), keyProblem: null, problem: settings.model ? null : 'Enter a model name.', localSuggestion: 'http://localhost:11434/v1', canSend: false }
+  },
+  ai_settings_set: ({ settings }) => { needOpen(); db.settings['ai.settings'] = settings; return null },
+  ai_key_set: () => { needOpen(); db.settings['ai.keySet'] = true; return null },
+  ai_key_clear: () => { needOpen(); db.settings['ai.keySet'] = false; return null },
+  ai_preview: () => {
+    needOpen()
+    const settings = (db.settings['ai.settings'] as AiSettings | undefined) ?? AI_OFF
+    if (!settings.enabled) throw 'AI narration is off. Turn it on in Settings first.'
+    const text = JSON.stringify({ risk_profile: 'Balanced', total_invested_approx: 100000, goals: [{ name: 'Goal 1', horizon_years: 20 }], note: 'Figures are rounded model outputs using illustrative assumptions.' }, null, 2)
+    return { system: 'You explain an investment plan in plain English to a non-expert.', text, destination: 'localhost', provider: settings.provider }
+  },
+  ai_send: () => { throw 'The browser preview never sends anything to an AI model.' },
   export_json: () => { needOpen(); return null },
   export_csv: ({ folder }) => { needOpen(); return `${folder}/samriddhi-export-${TODAY}-090000` },
   import_pick: (): ImportPreview => {
