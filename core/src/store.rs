@@ -18,6 +18,8 @@ use crate::money::MoneyError;
 /// Daily backups kept in each backup folder.
 pub const KEEP_BACKUPS: usize = 14;
 const BACKUP_PREFIX: &str = "samriddhi-";
+/// Name prefix of the backups made before an update.
+pub const PRE_UPDATE: &str = "pre-update-";
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -217,6 +219,38 @@ impl Store {
         std::fs::rename(&tmp, &path)?;
         prune(dir, BACKUP_PREFIX, KEEP_BACKUPS)?;
         Ok(Some(path))
+    }
+
+    /// Backup made just before installing another version, named after the
+    /// version running now, so going back can restore it. Kept apart from the
+    /// daily ones: the newest `keep` stay.
+    pub fn pre_update_backup(
+        &self,
+        dir: &Path,
+        key: &Key,
+        version: &str,
+        now: Timestamp,
+        keep: usize,
+    ) -> Result<PathBuf> {
+        if version.is_empty()
+            || !version
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-')
+        {
+            return Err(Error::Invalid(format!("odd version {version:?}")));
+        }
+        std::fs::create_dir_all(dir)?;
+        let name = format!(
+            "{PRE_UPDATE}{}-{version}.db",
+            now.strftime("%Y-%m-%d-%H%M%S")
+        );
+        let path = dir.join(&name);
+        let tmp = dir.join(format!("{name}.partial"));
+        let _ = std::fs::remove_file(&tmp);
+        self.export(&tmp, key)?;
+        std::fs::rename(&tmp, &path)?;
+        prune(dir, PRE_UPDATE, keep)?;
+        Ok(path)
     }
 
     pub fn summary(&self) -> Result<Summary> {
@@ -596,6 +630,67 @@ pub(crate) mod tests {
         assert!(!bad.exists());
         // Nor does an export over an existing file.
         assert!(matches!(s.export(&keep, &KEY), Err(Error::Exists(_))));
+    }
+
+    #[test]
+    fn pre_update_backups_are_kept_apart() {
+        let dir = tempfile::tempdir().unwrap();
+        let s = Store::open(&dir.path().join("samriddhi.db"), &KEY).unwrap();
+        s.set_setting("marker", &"Zebracorn").unwrap();
+        let backups_dir = dir.path().join("backups");
+        s.daily_backup(&backups_dir, &KEY, at(NOW)).unwrap();
+        for m in 0..5 {
+            s.pre_update_backup(
+                &backups_dir,
+                &KEY,
+                "0.1.0",
+                at(NOW) + SignedDuration::from_mins(m),
+                3,
+            )
+            .unwrap();
+        }
+        let mut names: Vec<String> = std::fs::read_dir(&backups_dir)
+            .unwrap()
+            .map(|e| e.unwrap().file_name().into_string().unwrap())
+            .collect();
+        names.sort();
+        assert_eq!(names.len(), 4, "{names:?}");
+        assert_eq!(names[0], "pre-update-2026-11-04-090200-0.1.0.db");
+        assert_eq!(names[2], "pre-update-2026-11-04-090400-0.1.0.db");
+        assert!(names[3].starts_with("samriddhi-"));
+        // The daily rotation does not see them, nor remove them.
+        assert_eq!(backups(&backups_dir).unwrap().len(), 1);
+        for d in 1..=20 {
+            s.daily_backup(
+                &backups_dir,
+                &KEY,
+                at(NOW) + SignedDuration::from_hours(24 * d),
+            )
+            .unwrap();
+        }
+        let pre = |n: &String| n.starts_with(PRE_UPDATE);
+        let after: Vec<String> = std::fs::read_dir(&backups_dir)
+            .unwrap()
+            .map(|e| e.unwrap().file_name().into_string().unwrap())
+            .collect();
+        assert_eq!(after.iter().filter(|n| pre(n)).count(), 3);
+        assert_eq!(backups(&backups_dir).unwrap().len(), KEEP_BACKUPS);
+        // It is a full, encrypted copy that the restore screen can open.
+        let newest = backups_dir.join(&names[2]);
+        let sum = inspect(&newest, &KEY, dir.path()).unwrap();
+        assert_eq!(sum.counts["sam_settings"], 1);
+        assert!(matches!(
+            inspect(&newest, &[9; 32], dir.path()),
+            Err(Error::WrongKey)
+        ));
+        // A version that could climb out of the folder is refused.
+        for bad in ["../x", "", "0.1.0/x"] {
+            assert!(
+                s.pre_update_backup(&backups_dir, &KEY, bad, at(NOW), 3)
+                    .is_err(),
+                "{bad}"
+            );
+        }
     }
 
     #[test]

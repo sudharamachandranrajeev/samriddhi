@@ -62,4 +62,26 @@ impl<R: Runtime> Device<R> {
         )?;
         Ok(KeyStorage::AndroidKeystore)
     }
+
+    /// GET a page from Samriddhi's GitHub releases (Kotlin refuses any other address).
+    pub fn fetch_text(&self, url: &str) -> Result<String> {
+        #[derive(Deserialize)]
+        struct Reply {
+            text: String,
+        }
+        let r: Reply = self
+            .0
+            .run_mobile_plugin("fetchText", serde_json::json!({ "url": url }))?;
+        Ok(r.text)
+    }
+
+    /// Download an APK, check it against the release's SHA256SUMS.txt, and open
+    /// Android's installer on it.
+    pub fn install_apk(&self, apk_url: &str, sums_url: &str, name: &str) -> Result<()> {
+        self.0.run_mobile_plugin::<serde_json::Value>(
+            "installApk",
+            serde_json::json!({ "apkUrl": apk_url, "sumsUrl": sums_url, "name": name }),
+        )?;
+        Ok(())
+    }
 }

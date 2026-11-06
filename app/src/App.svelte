@@ -10,6 +10,8 @@
   import { focusHeading, transition } from './lib/transition.ts'
   import { toast } from './lib/toast.svelte.ts'
   import Toasts from './components/Toasts.svelte'
+  import UpdateBanner from './components/UpdateBanner.svelte'
+  import { updates } from './lib/updates.svelte.ts'
   import Wizard from './screens/Wizard.svelte'
   import Unlock from './screens/Unlock.svelte'
   import Home from './screens/Home.svelte'
@@ -87,6 +89,12 @@
     }
   }
 
+  // Check for a new version once the app is open, unlocked and set up. It
+  // only asks; nothing is installed without the user pressing a button.
+  $effect(() => {
+    if (view.kind === 'app' && status?.phase === 'open') updates.startup()
+  })
+
   refresh()
   const section = $derived(hash.split('/')[1] ?? 'look')
 </script>
@@ -110,6 +118,7 @@
       {/if}
     {/snippet}
     <div class="page" id="main" tabindex="-1">
+      <UpdateBanner />
       {#key view.page}
         {#if view.page === 'home'}
           <Home onanswer={() => { location.hash = 'settings/answers' }} />

@@ -5,6 +5,7 @@
 
 mod data;
 mod export;
+mod update;
 mod wealth;
 
 use std::path::PathBuf;
@@ -86,18 +87,19 @@ impl App {
         let mut inner = self.inner.lock().unwrap();
         // Never make a key for a database that exists: it could not open it.
         match app.device().db_key(&self.dir, false) {
-            Ok(k) => match Store::open(&db, &k.key) {
-                Ok(store) => {
+            Ok(k) => match (self.apply_staged_restore(&k.key), Store::open(&db, &k.key)) {
+                (notice, Ok(store)) => {
                     let locked = lock_on(&store);
                     *inner = Inner {
                         store: Some(store),
                         key: Some(k.key),
                         key_storage: Some(k.storage),
                         locked,
+                        notice,
                         ..Inner::default()
                     }
                 }
-                Err(e) => {
+                (_, Err(e)) => {
                     inner.problem = Some(format!("The saved key does not open your data ({e})."))
                 }
             },
@@ -442,6 +444,7 @@ pub fn run() {
                 let _ = w.set_focus();
             }
         }));
+        builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
     }
     #[cfg(mobile)]
     {
@@ -452,6 +455,7 @@ pub fn run() {
     builder
         .plugin(tauri_plugin_samriddhi_device::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             let dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(dir.join(BACKUP_DIR))?;
@@ -494,6 +498,13 @@ pub fn run() {
             data::pick_backup,
             data::inspect_backup,
             data::restore_backup,
+            update::update_status,
+            update::set_update_mode,
+            update::check_update,
+            update::install_update,
+            update::rollback_plan,
+            update::rollback,
+            update::open_page,
             wealth::profile_get,
             wealth::set_fact,
             wealth::clear_fact,

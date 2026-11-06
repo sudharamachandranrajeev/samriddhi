@@ -26,6 +26,10 @@ export const HINTS: Record<string, { title: string; text: string }> = {
     title: 'Willing and able',
     text: 'How much risk you are willing to take is your attitude; how much loss you could absorb is your capacity. A good plan respects the lower of the two.',
   },
+  updates: {
+    title: 'Updates you can undo',
+    text: 'Before every update Samriddhi makes an encrypted backup. On a computer you can go back to the version you had; on a phone you restore that backup instead.',
+  },
   done: {
     title: 'One step at a time',
     text: 'Small steps you actually finish beat a perfect plan you never start. Samriddhi shows one at a time and explains each.',

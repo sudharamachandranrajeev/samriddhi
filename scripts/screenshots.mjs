@@ -106,9 +106,13 @@ for (const [theme, mode] of Object.entries(THEMES)) {
   await shot(page, `${p}wizard-6-risk-result`)
   await button(page, 'Continue').click()
 
+  await page.getByRole('heading', { name: 'New versions' }).waitFor()
+  await shot(page, `${p}wizard-7-updates`)
+  await button(page, 'Ask me when a new version is out').click()
+
   await page.getByRole('heading', { name: 'Your first step' }).waitFor()
   await page.locator('article.step').waitFor()
-  await shot(page, `${p}wizard-7-done`)
+  await shot(page, `${p}wizard-8-done`)
   await button(page, 'Go to my home').click()
 
   await page.getByRole('heading', { name: /^Good (morning|afternoon|evening)$/ }).waitFor()
@@ -129,7 +133,22 @@ for (const [theme, mode] of Object.entries(THEMES)) {
   await second.locator('article.step').first().waitFor()
   await shot(second, `${p}home-${other}`)
   await second.close()
+
+  // Settings, Updates on a copy that updated once and sees a newer version.
+  const third = await open(theme, mode, '?demo=update#settings/updates')
+  await third.getByText('Before the last update you had version 0.1.0').waitFor()
+  await third.getByText('Samriddhi 0.1.2 is out.').waitFor()
+  await shot(third, `${p}settings-updates`)
+  await third.close()
 }
+
+// The update banner on the home screen, Swarna only, with the notes open.
+const banner = await open('swarna', 'dark', '?demo=update')
+await banner.getByText('Samriddhi 0.1.2 is out.').waitFor()
+await button(banner, 'What is new').click()
+await banner.locator('article.step').first().waitFor()
+await shot(banner, 'swarna-update-banner')
+await banner.close()
 
 // Lock screen and phone width, Swarna only.
 const lock = await open('swarna', 'dark', '?demo=locked')

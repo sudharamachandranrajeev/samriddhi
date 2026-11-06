@@ -127,7 +127,7 @@ export interface StepsView {
   reviewDue: boolean
 }
 
-export type BackupKind = 'daily' | 'manual' | 'beforeRestore' | 'beforeImport'
+export type BackupKind = 'daily' | 'manual' | 'preUpdate' | 'beforeRestore' | 'beforeImport'
 
 export interface Backup {
   name: string
@@ -161,6 +161,36 @@ export interface ImportPreview {
   kept: string[]
 }
 
+export type InstallKind = 'installer' | 'appImage' | 'pacman' | 'portable' | 'android' | 'other'
+export type UpdateMode = 'ask' | 'off'
+
+export interface UpdateStatus {
+  kind: InstallKind
+  canInstall: boolean
+  current: string
+  /** The version before the last update, which "go back" returns to. */
+  previous: string | null
+  mode: UpdateMode
+}
+
+export interface UpdateInfo {
+  version: string
+  notes: string | null
+  date: string | null
+  /** Download size in bytes, when the update list gives it. */
+  size: number | null
+  canInstall: boolean
+}
+
+export interface RollbackPlan {
+  version: string
+  backup: string | null
+  needsRestore: boolean
+}
+
+/** Pages the app may open in the browser: its download page or a new GitHub issue. */
+export type Page = 'releases' | 'bug' | 'idea'
+
 /** Every command the screens use, with its arguments and answer. */
 export interface Commands {
   status: [Record<string, never>, Status]
@@ -183,6 +213,13 @@ export interface Commands {
   pick_backup: [Record<string, never>, string | null]
   inspect_backup: [{ name: string | null; recovery: string | null }, Summary]
   restore_backup: [{ name: string | null; recovery: string | null }, string]
+  update_status: [Record<string, never>, UpdateStatus]
+  set_update_mode: [{ mode: UpdateMode }, null]
+  check_update: [Record<string, never>, UpdateInfo | null]
+  install_update: [{ version: string }, null]
+  rollback_plan: [Record<string, never>, RollbackPlan | null]
+  rollback: [{ restore: boolean }, null]
+  open_page: [{ page: Page; fields: Record<string, string> }, null]
   profile_get: [Record<string, never>, ProfileView]
   set_fact: [{ key: string; value: unknown; source: Source }, null]
   clear_fact: [{ key: string }, null]
@@ -252,4 +289,11 @@ export async function chooseFolder(title: string): Promise<string | null> {
   const { open } = await import('@tauri-apps/plugin-dialog')
   const picked = await open({ title, directory: true, multiple: false })
   return typeof picked === 'string' ? picked : null
+}
+
+/** Download progress of an update: bytes so far and the total, if known. */
+export async function onUpdateProgress(f: (done: number, total: number | null) => void): Promise<() => void> {
+  if (!inApp) return () => {}
+  const { listen } = await import('@tauri-apps/api/event')
+  return listen<[number, number | null]>('update-progress', (e) => f(e.payload[0], e.payload[1]))
 }

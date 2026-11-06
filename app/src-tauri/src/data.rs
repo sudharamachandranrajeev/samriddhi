@@ -5,7 +5,7 @@
 use std::path::{Path, PathBuf};
 
 use samriddhi_core::keys::{self, Key};
-use samriddhi_core::store::{self, Store, Summary};
+use samriddhi_core::store::{self, PRE_UPDATE, Store, Summary};
 use serde::Serialize;
 use tauri::{AppHandle, State};
 use tauri_plugin_dialog::DialogExt;
@@ -17,6 +17,10 @@ const BEFORE_RESTORE: &str = "before-restore-";
 pub(crate) const BEFORE_IMPORT: &str = "before-import-";
 const KEEP_MANUAL: usize = 20;
 const KEEP_BEFORE_RESTORE: usize = 5;
+/// Backups made before an update, kept apart from the 14 daily ones.
+pub const KEEP_PRE_UPDATE: usize = 3;
+/// A pre-update backup waiting to replace the data at the next start.
+const STAGED: &str = "restore.staged.db";
 /// Where a file picked for restoring is copied, so it can be read like any other.
 const PICKED: &str = "picked.db";
 
@@ -24,7 +28,7 @@ const PICKED: &str = "picked.db";
 #[serde(rename_all = "camelCase")]
 pub struct Backup {
     name: String,
-    /// daily, manual, beforeRestore or beforeImport
+    /// daily, manual, preUpdate, beforeRestore or beforeImport
     kind: &'static str,
     bytes: u64,
 }
@@ -131,6 +135,39 @@ impl App {
             }
         }
     }
+
+    /// Going back a version whose data format is older: the pre-update
+    /// backup replaces the data at the next start, before anything opens it
+    /// (opening it now would upgrade it again).
+    pub fn stage_restore(&self, name: &str) -> CommandResult<()> {
+        let src = self.backup_path(name)?;
+        let tmp = self.dir.join(format!("{STAGED}.partial"));
+        std::fs::copy(&src, &tmp).map_err(err)?;
+        std::fs::rename(&tmp, self.dir.join(STAGED)).map_err(err)
+    }
+
+    pub fn cancel_staged_restore(&self) {
+        let _ = std::fs::remove_file(self.dir.join(STAGED));
+    }
+
+    /// At start, before the store opens: put a staged backup in place. The
+    /// data it replaces was backed up just before the version change.
+    pub fn apply_staged_restore(&self, key: &Key) -> Option<String> {
+        let staged = self.dir.join(STAGED);
+        if !staged.is_file() {
+            return None;
+        }
+        let r = self.replace_db(&staged, |db| Store::open(db, key).map(drop).map_err(err));
+        self.cancel_staged_restore();
+        Some(match r {
+            Ok(()) => {
+                "The backup from before the update was put back, to match this version.".into()
+            }
+            Err(e) => format!(
+                "The backup from before the update could not be put back ({e}). Your data is unchanged."
+            ),
+        })
+    }
 }
 
 fn prune(dir: &Path, prefix: &str, keep: usize) {
@@ -149,7 +186,9 @@ fn prune(dir: &Path, prefix: &str, keep: usize) {
 }
 
 fn kind(name: &str) -> &'static str {
-    if name.starts_with(MANUAL) {
+    if name.starts_with(PRE_UPDATE) {
+        "preUpdate"
+    } else if name.starts_with(MANUAL) {
         "manual"
     } else if name.starts_with(BEFORE_RESTORE) {
         "beforeRestore"

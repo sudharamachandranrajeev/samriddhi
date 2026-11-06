@@ -1,0 +1,43 @@
+name: Report a problem
+description: Something does not work as it should.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you. **Do not include amounts, account names, people's names or anything that could identify you or anyone else.**
+        Samriddhi filled in the details below, with amounts, names and numbers taken out of the error messages. Check them and remove anything you do not want to share.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead. Describe figures in words ("a large balance"), not amounts.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to make it happen again
+      placeholder: "1. Open Settings\n2. Press ...\n3. ..."
+  - type: input
+    id: version
+    attributes:
+      label: Samriddhi version
+  - type: input
+    id: os
+    attributes:
+      label: System
+  - type: input
+    id: install
+    attributes:
+      label: How Samriddhi was installed
+  - type: input
+    id: theme
+    attributes:
+      label: Theme
+  - type: textarea
+    id: errors
+    attributes:
+      label: Last error messages
+      description: Up to three, newest first. Amounts, quoted names, paths and numbers are already replaced.
+      render: text

@@ -1,0 +1,25 @@
+# Arch Linux package for Samriddhi, built in CI from the release binary
+# (see .github/workflows/release.yml). To build it yourself: put a built
+# `samriddhi` binary, the app's icons/ folder and LICENSE next to this file
+# and run `SAMRIDDHI_VERSION=x.y.z makepkg`.
+pkgname=samriddhi
+pkgver=${SAMRIDDHI_VERSION:-0.0.0}
+pkgrel=1
+pkgdesc='Your money, work and people in one picture, with safe next steps'
+arch=(x86_64)
+url='https://github.com/sudharamachandranrajeev/samriddhi'
+license=(MIT)
+depends=(webkit2gtk-4.1 gtk3 librsvg hicolor-icon-theme polkit)
+options=(!strip !debug)
+
+package() {
+  install -Dm755 "$startdir/samriddhi" "$pkgdir/usr/bin/samriddhi"
+  install -Dm644 "$startdir/samriddhi.desktop" "$pkgdir/usr/share/applications/samriddhi.desktop"
+  install -Dm644 "$startdir/icons/32x32.png" "$pkgdir/usr/share/icons/hicolor/32x32/apps/samriddhi.png"
+  install -Dm644 "$startdir/icons/128x128.png" "$pkgdir/usr/share/icons/hicolor/128x128/apps/samriddhi.png"
+  install -Dm644 "$startdir/icons/128x128@2x.png" "$pkgdir/usr/share/icons/hicolor/256x256/apps/samriddhi.png"
+  install -Dm644 "$startdir/LICENSE" "$pkgdir/usr/share/licenses/samriddhi/LICENSE"
+  # Tells the app it was installed with pacman, so it updates through pacman.
+  install -dm755 "$pkgdir/usr/lib/samriddhi"
+  echo pacman >"$pkgdir/usr/lib/samriddhi/install-type"
+}

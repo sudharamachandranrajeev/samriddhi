@@ -5,10 +5,12 @@
 //
 // `?demo=home` in the address starts with a finished set-up and synthetic
 // answers, `?demo=locked` starts locked (PIN 2468), `?demo=recover` starts
-// as a device that lost its key.
+// as a device that lost its key, `?demo=update` is a finished set-up that
+// updated itself once and sees a newer version.
 
 import type {
-  Backups, CountryTie, Dismissal, Goal, ImportPreview, Profile, RiskAnswer, RiskProfile, RiskQuestion, Status, Step,
+  BackupKind, Backups, CountryTie, Dismissal, Goal, ImportPreview, Profile, RiskAnswer, RiskProfile, RiskQuestion, RollbackPlan, Status,
+  Step, UpdateInfo, UpdateMode, UpdateStatus,
 } from './api.ts'
 import { formatMoney, monthsCovered, roughNetWorth, type Money } from './money.ts'
 
@@ -74,7 +76,9 @@ interface Db {
   goals: Goal[]
   answers: RiskAnswer[]
   dismissed: Dismissal[]
-  backups: { name: string; kind: 'daily' | 'manual' | 'beforeRestore' | 'beforeImport'; bytes: number }[]
+  backups: { name: string; kind: BackupKind; bytes: number }[]
+  /** A newer version the preview pretends is out (the ?demo=update page). */
+  update: UpdateInfo | null
   pending: ImportPreview | null
   picked: boolean
   wrong: number
@@ -82,7 +86,7 @@ interface Db {
 
 const fresh = (): Db => ({
   exists: false, open: false, locked: false, settings: {}, facts: {}, countries: [], goals: [], answers: [], dismissed: [],
-  backups: [], pending: null, picked: false, wrong: 0,
+  backups: [], pending: null, picked: false, wrong: 0, update: null,
 })
 
 const NOW = '2026-11-06T09:00:00Z'
@@ -117,6 +121,19 @@ if (mode === 'home' || mode === 'locked') demo(db)
 if (mode === 'locked') {
   db.locked = true
   db.settings['lock.pin'] = '2468'
+}
+if (mode === 'update') {
+  // A copy that updated itself once (0.1.0 to 0.1.1) and sees 0.1.2 is out.
+  demo(db)
+  db.settings['update.previous'] = '0.1.0'
+  db.backups.splice(1, 0, { name: 'pre-update-2026-11-05-181500-0.1.0.db', kind: 'preUpdate', bytes: 98304 })
+  db.update = {
+    version: '0.1.2',
+    notes: '### Fixed\n- The home screen keeps your theme after a restore.\n\n### Added\n- Clearer dates on backups.',
+    date: '2026-11-20T09:00:00Z',
+    size: 9_437_184,
+    canInstall: true,
+  }
 }
 if (mode === 'recover') {
   demo(db)
@@ -326,6 +343,28 @@ const handlers: Record<string, (a: Args) => unknown> = {
     return `before-import-${TODAY}-090200.db`
   },
   import_cancel: () => { db.pending = null; return null },
+  update_status: (): UpdateStatus => {
+    needOpen()
+    return {
+      kind: 'appImage',
+      canInstall: true,
+      current: db.update ? '0.1.1' : '0.1.0',
+      previous: (db.settings['update.previous'] as string | undefined) ?? null,
+      mode: (db.settings['updates.mode'] as UpdateMode | undefined) ?? 'ask',
+    }
+  },
+  set_update_mode: ({ mode }) => { needOpen(); db.settings['updates.mode'] = mode; return null },
+  check_update: () => db.update,
+  install_update: () => { throw 'The browser preview cannot install updates.' },
+  rollback_plan: (): RollbackPlan | null => {
+    needOpen()
+    const version = db.settings['update.previous'] as string | undefined
+    if (!version) return null
+    const backup = db.backups.find((b) => b.kind === 'preUpdate' && b.name.endsWith(`-${version}.db`))?.name ?? null
+    return { version, backup, needsRestore: false }
+  },
+  rollback: () => { throw 'The browser preview cannot install other versions.' },
+  open_page: () => { throw 'The browser preview cannot open web pages.' },
 }
 
 export async function invoke(cmd: string, args: Args = {}): Promise<unknown> {

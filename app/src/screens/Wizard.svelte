@@ -1,8 +1,8 @@
 <script lang="ts">
-  // First run, seven screens. Each says in one sentence why it asks.
+  // First run, eight screens. Each says in one sentence why it asks.
   import { Button, Card } from '@samriddhi/ui'
   import Check from '@lucide/svelte/icons/check'
-  import { call, type RiskProfile, type Status, type Step } from '../lib/api.ts'
+  import { call, type RiskProfile, type Status, type Step, type UpdateMode } from '../lib/api.ts'
   import { HINTS } from '../lib/hints.ts'
   import { SAFETY, SCREENS, checkPin, groupKey, nextScreen, prevScreen, resumeAt, screenIndex, type ScreenId } from '../lib/wizard.ts'
   import { focusHeading, transition } from '../lib/transition.ts'
@@ -97,6 +97,18 @@
       await call('recovery_saved')
       pin = pin2 = ''
       await onstatus()
+      next()
+    } catch (e) {
+      toast.error(e)
+    } finally {
+      busy = false
+    }
+  }
+
+  async function setUpdates(mode: UpdateMode) {
+    busy = true
+    try {
+      await call('set_update_mode', { mode })
       next()
     } catch (e) {
       toast.error(e)
@@ -218,6 +230,18 @@
           <RiskEditor saveLabel="See my result" onsaved={(r) => (r ? (risk = r) : next())} />
         {/if}
       </Card>
+    {:else if screen === 'updates'}
+      <Card>
+        <div class="stack">
+          <p>When Samriddhi starts, it can check the project's GitHub page for a new version and ask you before installing it. Nothing is installed until you press a button, and "Later" always works.</p>
+          <p>Your data is backed up before every update, and you can go back to the version you had in Settings, Updates.</p>
+          <p class="muted small">Checking tells GitHub your internet address and nothing else. Nothing about you or your money is sent. You can change this any time in Settings, Updates.</p>
+          <div class="row-actions">
+            <Button disabled={busy} onclick={() => setUpdates('ask')}>Ask me when a new version is out</Button>
+            <Button variant="ghost" disabled={busy} onclick={() => setUpdates('off')}>Do not check</Button>
+          </div>
+        </div>
+      </Card>
     {:else}
       <Card>
         <div class="stack">
@@ -237,7 +261,7 @@
     {#if screen !== 'welcome' && screen !== 'protect'}
       <div class="row-actions nav">
         <Button variant="ghost" onclick={back}>Back</Button>
-        {#if screen !== 'done'}<button class="link-button" onclick={next}>Skip for now</button>{/if}
+        {#if screen !== 'done' && screen !== 'updates'}<button class="link-button" onclick={next}>Skip for now</button>{/if}
       </div>
     {/if}
 

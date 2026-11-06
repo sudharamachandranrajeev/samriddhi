@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Samriddhi
+Comment=Your money, work and people in one picture, with safe next steps
+Exec=samriddhi
+Icon=samriddhi
+Terminal=false
+Categories=Office;Finance;
+StartupWMClass=samriddhi

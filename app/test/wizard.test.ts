@@ -6,8 +6,8 @@ import {
   newTie, nextScreen, prevScreen, resumeAt, setTaxHome, toggleGoal, type GoalDraft,
 } from '../src/lib/wizard.ts'
 
-test('seven screens, in the planned order, each with a one-sentence reason', () => {
-  assert.deepEqual(SCREENS.map((s) => s.id), ['welcome', 'protect', 'countries', 'goals', 'money', 'risk', 'done'])
+test('eight screens, in the planned order, each with a one-sentence reason', () => {
+  assert.deepEqual(SCREENS.map((s) => s.id), ['welcome', 'protect', 'countries', 'goals', 'money', 'risk', 'updates', 'done'])
   for (const s of SCREENS) {
     assert.ok(s.why.endsWith('.'), s.id)
     assert.equal(s.why.split(/\.\s/).length, 1, `${s.id} why is one sentence`)
@@ -17,6 +17,8 @@ test('seven screens, in the planned order, each with a one-sentence reason', () 
   assert.equal(nextScreen('done'), 'done')
   assert.equal(prevScreen('welcome'), 'welcome')
   assert.equal(prevScreen('money'), 'goals')
+  assert.equal(nextScreen('risk'), 'updates')
+  assert.equal(prevScreen('done'), 'updates')
   assert.equal(resumeAt(true), 'protect')
   assert.equal(resumeAt(false), 'countries')
 })

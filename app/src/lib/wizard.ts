@@ -1,10 +1,10 @@
 // The first-run wizard as data and pure checks, so the rules can be tested
-// without a screen. Seven screens; each says in one sentence why it asks.
+// without a screen. Eight screens; each says in one sentence why it asks.
 
 import type { CountryTie, Debt, Goal, GoalKind, RateBand, RiskAnswer, RiskQuestion } from './api.ts'
 import { parseAmount, type Money } from './money.ts'
 
-export type ScreenId = 'welcome' | 'protect' | 'countries' | 'goals' | 'money' | 'risk' | 'done'
+export type ScreenId = 'welcome' | 'protect' | 'countries' | 'goals' | 'money' | 'risk' | 'updates' | 'done'
 
 export const SCREENS: { id: ScreenId; title: string; why: string }[] = [
   {
@@ -36,6 +36,11 @@ export const SCREENS: { id: ScreenId; title: string; why: string }[] = [
     id: 'risk',
     title: 'How you feel about risk',
     why: 'We never suggest a move that is riskier than you are willing, and able, to take.',
+  },
+  {
+    id: 'updates',
+    title: 'New versions',
+    why: 'New versions fix problems, so Samriddhi can look for one when it starts and always asks you before installing anything.',
   },
   {
     id: 'done',

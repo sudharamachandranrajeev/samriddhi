@@ -1,0 +1,30 @@
+name: Suggest a feature
+description: An idea that would make Samriddhi more useful.
+labels: [idea]
+body:
+  - type: markdown
+    attributes:
+      value: "**Do not include amounts, account names, people's names or anything that could identify you or anyone else.**"
+  - type: textarea
+    id: problem
+    attributes:
+      label: What would it help you do?
+      description: The job or problem, in your own words. This matters more than the solution.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: How you picture it
+  - type: input
+    id: version
+    attributes:
+      label: Samriddhi version
+  - type: input
+    id: os
+    attributes:
+      label: System
+  - type: input
+    id: install
+    attributes:
+      label: How Samriddhi was installed

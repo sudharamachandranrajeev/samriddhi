@@ -1,5 +1,5 @@
 <script lang="ts">
-  // Look, lock, backups, export and import, and your answers. Every change
+  // Look, lock, backups, updates, export and import, and your answers. Every change
   // that replaces data shows what it would change first and backs up before.
   import { Button, Card, Explain, Segmented, ThemePicker } from '@samriddhi/ui'
   import { call, chooseFolder, chooseSave, type Backups, type ImportPreview, type Status, type Summary } from '../lib/api.ts'
@@ -11,14 +11,16 @@
   import GoalsEditor from '../components/GoalsEditor.svelte'
   import MoneyEditor from '../components/MoneyEditor.svelte'
   import RiskEditor from '../components/RiskEditor.svelte'
+  import UpdatesPanel from '../components/UpdatesPanel.svelte'
 
-  type Section = 'look' | 'lock' | 'backups' | 'export' | 'answers' | 'safety'
+  type Section = 'look' | 'lock' | 'backups' | 'updates' | 'export' | 'answers' | 'safety'
   let { status, section: initial = 'look', onstatus }: { status: Status; section?: string; onstatus: () => Promise<void> } = $props()
 
   const SECTIONS: { value: Section; label: string }[] = [
     { value: 'look', label: 'Look' },
     { value: 'lock', label: 'Lock' },
     { value: 'backups', label: 'Backups' },
+    { value: 'updates', label: 'Updates' },
     { value: 'export', label: 'Export' },
     { value: 'answers', label: 'Your answers' },
     { value: 'safety', label: 'Safety' },
@@ -38,7 +40,7 @@
   }
   const tableName = (t: string) => TABLES[t] ?? t
   const kb = (n: number) => `${Math.max(1, Math.round(n / 1024))} KB`
-  const KIND = { daily: 'Daily', manual: 'Made by you', beforeRestore: 'Before a restore', beforeImport: 'Before an import' }
+  const KIND = { daily: 'Daily', manual: 'Made by you', preUpdate: 'Before an update', beforeRestore: 'Before a restore', beforeImport: 'Before an import' }
 
   async function act<T>(f: () => Promise<T>, done?: (v: T) => string) {
     try {
@@ -214,7 +216,7 @@
   </div>
 {:else if section === 'backups'}
   <div class="grid">
-    <Card title="Backups" explain="Every day Samriddhi keeps an encrypted copy of your data on this device (the newest 14). They open only with this device's key or your recovery key.">
+    <Card title="Backups" explain="Every day Samriddhi keeps an encrypted copy of your data on this device (the newest 14), and one before each update (the newest 3). They open only with this device's key or your recovery key.">
       <div class="stack">
         <div class="row-actions">
           <Button onclick={backupNow}>Back up now</Button>
@@ -275,6 +277,8 @@
       </Card>
     </div>
   </div>
+{:else if section === 'updates'}
+  <UpdatesPanel onbackups={() => (section = 'backups')} />
 {:else if section === 'export'}
   <div class="grid">
     <Card title="Export everything" explain="A full, readable copy of everything Samriddhi holds about you. Yours to keep, move or read; no paywall, no lock-in.">
@@ -318,7 +322,7 @@
     <ol class="safety">
       {#each SAFETY as s (s.title)}<li><strong>{s.title}.</strong> <span class="muted">{s.text}</span></li>{/each}
     </ol>
-    <p class="muted small about">Samriddhi 0.1.0 · local mode: your data stays on this device · MIT licence <Explain title="Local mode" text="In this version everything runs on this device. Nothing is sent anywhere: no bank links, no AI, no tracking." /></p>
+    <p class="muted small about">Samriddhi 0.1.0 · local mode: your data stays on this device · MIT licence <Explain title="Local mode" text="In this version everything runs on this device: no bank links, no AI, no tracking. The only time it goes online is to check GitHub for a new version, which you can turn off in Settings, Updates." /></p>
   </Card>
 {/if}
 

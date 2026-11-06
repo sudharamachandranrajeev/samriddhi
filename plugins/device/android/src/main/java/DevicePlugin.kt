@@ -1,7 +1,12 @@
 package dev.brahma.samriddhi.device
 
 import android.app.Activity
+import android.content.ActivityNotFoundException
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.provider.Settings
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
@@ -11,7 +16,12 @@ import app.tauri.annotation.TauriPlugin
 import app.tauri.plugin.Invoke
 import app.tauri.plugin.JSObject
 import app.tauri.plugin.Plugin
+import androidx.core.content.FileProvider
+import java.io.File
+import java.net.HttpURLConnection
+import java.net.URL
 import java.security.KeyStore
+import java.security.MessageDigest
 import java.security.SecureRandom
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
@@ -22,6 +32,18 @@ import javax.crypto.spec.GCMParameterSpec
 class KeyArgs {
     var mayCreate: Boolean = false
     var key: String? = null
+}
+
+@InvokeArg
+class FetchArgs {
+    var url: String = ""
+}
+
+@InvokeArg
+class ApkArgs {
+    var apkUrl: String = ""
+    var sumsUrl: String = ""
+    var name: String = ""
 }
 
 // The database key is random, and is stored only wrapped (AES-GCM) by a key
@@ -99,5 +121,97 @@ class DevicePlugin(private val activity: Activity) : Plugin(activity) {
         } catch (e: Exception) {
             invoke.reject("could not store the key: ${e.message}")
         }
+    }
+
+    private fun open(intent: Intent): Boolean =
+        try {
+            activity.startActivity(intent)
+            true
+        } catch (e: ActivityNotFoundException) {
+            false
+        }
+
+    // Updates come only from Samriddhi's own GitHub releases, over HTTPS.
+    private val releases = "https://github.com/sudharamachandranrajeev/samriddhi/releases/"
+
+    private fun get(url: String): HttpURLConnection {
+        require(url.startsWith(releases)) { "not a Samriddhi release address" }
+        val c = URL(url).openConnection() as HttpURLConnection
+        c.connectTimeout = 15_000
+        c.readTimeout = 60_000
+        c.setRequestProperty("User-Agent", "Samriddhi")
+        if (c.responseCode != 200) throw IllegalStateException("the server answered ${c.responseCode}")
+        return c
+    }
+
+    @Command
+    fun fetchText(invoke: Invoke) {
+        val args = invoke.parseArgs(FetchArgs::class.java)
+        Thread {
+            try {
+                val text = get(args.url).inputStream.use { it.readBytes().toString(Charsets.UTF_8) }
+                val result = JSObject()
+                result.put("text", text)
+                invoke.resolve(result)
+            } catch (e: Exception) {
+                invoke.reject("could not reach the update server: ${e.message}")
+            }
+        }.start()
+    }
+
+    // Download the APK, check it against SHA256SUMS.txt from the same release,
+    // and hand it to Android's installer. Android itself refuses an APK that is
+    // not signed with the same key as the installed app.
+    @Command
+    fun installApk(invoke: Invoke) {
+        val args = invoke.parseArgs(ApkArgs::class.java)
+        if (!args.name.matches(Regex("[A-Za-z0-9._-]+\\.apk"))) {
+            invoke.reject("odd file name")
+            return
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !activity.packageManager.canRequestPackageInstalls()) {
+            open(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:" + activity.packageName)))
+            invoke.reject("Allow Samriddhi to install updates in the page that opened, then try again.")
+            return
+        }
+        Thread {
+            val dir = File(activity.filesDir, "updates").apply { mkdirs() }
+            val file = File(dir, args.name)
+            try {
+                val sums = get(args.sumsUrl).inputStream.use { it.readBytes().toString(Charsets.UTF_8) }
+                val want = sums.lineSequence()
+                    .map { it.trim().split(Regex("\\s+")) }
+                    .firstOrNull { it.size == 2 && it[1].removePrefix("*") == args.name }
+                    ?.get(0)?.lowercase()
+                    ?: throw IllegalStateException("${args.name} is not listed in SHA256SUMS.txt")
+                dir.listFiles()?.forEach { it.delete() }
+                val digest = MessageDigest.getInstance("SHA-256")
+                get(args.apkUrl).inputStream.use { input ->
+                    file.outputStream().use { out ->
+                        val buf = ByteArray(64 * 1024)
+                        while (true) {
+                            val n = input.read(buf)
+                            if (n < 0) break
+                            digest.update(buf, 0, n)
+                            out.write(buf, 0, n)
+                        }
+                    }
+                }
+                val got = digest.digest().joinToString("") { "%02x".format(it) }
+                if (got != want) {
+                    file.delete()
+                    throw IllegalStateException("the download is damaged (checksum does not match)")
+                }
+                val uri = FileProvider.getUriForFile(activity, activity.packageName + ".samriddhi.updates", file)
+                val intent = Intent(Intent.ACTION_VIEW)
+                    .setDataAndType(uri, "application/vnd.android.package-archive")
+                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+                activity.runOnUiThread { open(intent) }
+                invoke.resolve()
+            } catch (e: Exception) {
+                file.delete()
+                invoke.reject("the update could not be downloaded: ${e.message}")
+            }
+        }.start()
     }
 }
