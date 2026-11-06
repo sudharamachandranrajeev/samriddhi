@@ -175,7 +175,7 @@ pub enum GoalKind {
 }
 
 impl GoalKind {
-    fn as_str(&self) -> &'static str {
+    pub fn as_str(&self) -> &'static str {
         match self {
             GoalKind::EmergencyCushion => "emergencyCushion",
             GoalKind::ClearDebt => "clearDebt",

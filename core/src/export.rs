@@ -30,6 +30,9 @@ pub const IMPORT_TABLES: &[&str] = &[
     "sam_goals",
     "sam_risk_answers",
     "sam_steps_dismissed",
+    "sam_accounts",
+    "sam_holdings",
+    "sam_step_log",
 ];
 
 /// Settings that stay on this device.
@@ -206,12 +209,16 @@ impl Store {
     /// backup first: this cannot be undone.
     pub fn import(&mut self, export: &Export, now: Timestamp) -> Result<ImportPreview> {
         let preview = self.preview_import(export)?;
+        // In TABLES order, so a table comes after the ones it refers to.
         let mut columns = Vec::new();
-        for t in &preview.tables {
-            columns.push((t.table.clone(), self.columns(&t.table)?));
+        for table in TABLES {
+            if preview.tables.iter().any(|t| t.table == *table) {
+                columns.push((table.to_string(), self.columns(table)?));
+            }
         }
         let tx = self.conn.transaction()?;
-        for (table, cols) in &columns {
+        // Empty the tables first, those that refer to others first...
+        for (table, _) in columns.iter().rev() {
             if table == "sam_settings" {
                 // This device's PIN and lock stay as they are.
                 tx.execute(
@@ -221,6 +228,9 @@ impl Store {
             } else {
                 tx.execute(&format!("DELETE FROM {table}"), [])?;
             }
+        }
+        // ...then fill them, those referred to first.
+        for (table, cols) in &columns {
             for row in export.tables[table].as_array().into_iter().flatten() {
                 insert(&tx, table, cols, row)?;
             }
@@ -243,7 +253,8 @@ impl Store {
 }
 
 /// Check what the database's own constraints cannot: facts have the right
-/// shape, answers fit the questions, goals are known kinds.
+/// shape, answers fit the questions, goals are known kinds, holdings are in
+/// a known currency.
 fn check_row(table: &str, row: &Map<String, Value>) -> Result<()> {
     let text = |c: &str| row.get(c).and_then(Value::as_str).unwrap_or_default();
     match table {
@@ -258,6 +269,9 @@ fn check_row(table: &str, row: &Map<String, Value>) -> Result<()> {
         "sam_goals" => serde_json::from_value::<GoalKind>(Value::String(text("kind").into()))
             .map(drop)
             .map_err(|_| Error::Invalid(format!("unknown goal {:?}", text("kind")))),
+        "sam_holdings" => crate::money::Currency::new(text("currency"))
+            .map(drop)
+            .map_err(|_| Error::Invalid("a holding has an unknown currency".into())),
         _ => Ok(()),
     }
 }
@@ -329,9 +343,12 @@ fn csv_line(fields: impl Iterator<Item = Value>) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::assets::AssetClass;
     use crate::money::{Currency, Money};
     use crate::profile::{self, CountryTie, Goal, Source};
+    use crate::step_log::Decision;
     use crate::store::tests::{NOW, at};
+    use crate::wealth::Wrapper;
     use serde_json::json;
 
     /// A store with one of everything; synthetic data only.
@@ -375,6 +392,23 @@ mod tests {
         )
         .unwrap();
         s.step_not_for_me("cushion", "=SUM(A1)", now).unwrap();
+        let acct = s.add_account("Everyday", Wrapper::Isa, now).unwrap();
+        s.add_holding(
+            &acct.id,
+            "World fund",
+            AssetClass::Equity,
+            Money::new(250_000, Currency::GBP),
+            now,
+        )
+        .unwrap();
+        s.log_step_decision(
+            "cushion",
+            "steps",
+            "Build a cushion",
+            Decision::Accepted,
+            now,
+        )
+        .unwrap();
         s.set_setting("ui.theme", &"vana").unwrap();
         s.set_setting("lock.pin", &"$argon2id$fake").unwrap();
         s.set_setting("recovery.saved", &true).unwrap();
@@ -396,6 +430,12 @@ mod tests {
         let row = &e.tables["sam_countries"][0];
         assert_eq!(row["code"], "GB");
         assert_eq!(row["tax_home"], 1);
+        let h = &e.tables["sam_holdings"][0];
+        assert_eq!(
+            (h["amount_minor"].clone(), h["currency"].clone()),
+            (json!(250_000), json!("GBP"))
+        );
+        assert_eq!(e.tables["sam_step_log"][0]["status"], "accepted");
         // The export is in the audit log.
         assert_eq!(s.audit_log(1).unwrap()[0].3, "export");
     }
@@ -472,9 +512,23 @@ mod tests {
             "this device keeps its own PIN"
         );
         assert_eq!(target.audit_log(1).unwrap()[0].3, "import");
+        assert_eq!(target.accounts().unwrap(), source.accounts().unwrap());
+        assert_eq!(target.holdings().unwrap(), source.holdings().unwrap());
+        assert_eq!(
+            target.step_log_since(at(NOW)).unwrap(),
+            source.step_log_since(at(NOW)).unwrap()
+        );
         // Importing twice gives the same result, not doubles.
         target.import(&back, at(NOW)).unwrap();
         assert_eq!(target.countries().unwrap().len(), 1);
+        assert_eq!(target.holdings().unwrap().len(), 1);
+        assert_eq!(target.step_log_since(at(NOW)).unwrap().len(), 1);
+        // The file order does not matter: holdings listed before accounts.
+        let mut flipped = back.clone();
+        let accounts = flipped.tables.shift_remove("sam_accounts").unwrap();
+        flipped.tables.insert("sam_accounts".into(), accounts);
+        target.import(&flipped, at(NOW)).unwrap();
+        assert_eq!(target.holdings().unwrap(), source.holdings().unwrap());
     }
 
     #[test]
@@ -508,6 +562,15 @@ mod tests {
         let mut e = good.clone();
         e.tables["sam_risk_answers"][0]["option_id"] = json!("panic");
         refused(&e, &mut target);
+        let mut e = good.clone();
+        e.tables["sam_holdings"][0]["currency"] = json!("ZZZ");
+        refused(&e, &mut target);
+        // A holding whose account is not in the file rolls back the lot.
+        let mut e = good.clone();
+        e.tables["sam_accounts"] = json!([]);
+        assert!(target.preview_import(&e).is_ok());
+        assert!(target.import(&e, at(NOW)).is_err());
+        assert_eq!(target.holdings().unwrap().len(), 1);
         // A row the database itself refuses (two tax homes) rolls back the lot.
         let mut e = good.clone();
         let mut second = e.tables["sam_countries"][0].clone();

@@ -1,0 +1,19 @@
+{
+  "asOf": "2026-11-05",
+  "source": "Generic long-run illustrative figures carried over from the samridhi prototype. Synthetic: not market data and not a forecast.",
+  "note": "Annual expected (arithmetic) return and annual standard deviation per asset class, and their correlations. They exist so the optimiser has fixed inputs; every screen that shows a result built on them carries the model disclosure.",
+  "classes": [
+    { "class": "equity", "expectedReturn": 0.070, "volatility": 0.16 },
+    { "class": "bonds", "expectedReturn": 0.035, "volatility": 0.06 },
+    { "class": "property", "expectedReturn": 0.060, "volatility": 0.14 },
+    { "class": "gold", "expectedReturn": 0.030, "volatility": 0.15 },
+    { "class": "cash", "expectedReturn": 0.020, "volatility": 0.005 }
+  ],
+  "correlations": [
+    [1.00, 0.10, 0.70, 0.05, 0.00],
+    [0.10, 1.00, 0.25, 0.20, 0.10],
+    [0.70, 0.25, 1.00, 0.10, 0.00],
+    [0.05, 0.20, 0.10, 1.00, 0.00],
+    [0.00, 0.10, 0.00, 0.00, 1.00]
+  ]
+}

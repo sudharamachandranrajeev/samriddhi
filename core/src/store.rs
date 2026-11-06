@@ -102,9 +102,38 @@ pub(crate) const MIGRATIONS: &[&str] = &["
         action TEXT NOT NULL CHECK (action IN ('read', 'write')),
         what TEXT NOT NULL
     );
+", "
+    -- Phase 2b: accounts and holdings (entered or imported), and the log of
+    -- decisions about suggested steps.
+    CREATE TABLE sam_accounts (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL CHECK (length(trim(name)) > 0),
+        wrapper TEXT NOT NULL CHECK (wrapper IN ('isa', 'pension', 'taxable', 'cash')),
+        source TEXT NOT NULL CHECK (source IN ('manual', 'import')),
+        updated_at TEXT NOT NULL
+    );
+    CREATE TABLE sam_holdings (
+        id TEXT PRIMARY KEY,
+        account_id TEXT NOT NULL REFERENCES sam_accounts(id),
+        name TEXT NOT NULL CHECK (length(trim(name)) > 0),
+        asset_class TEXT NOT NULL CHECK (asset_class IN ('equity', 'bonds', 'property', 'gold', 'cash')),
+        amount_minor INTEGER NOT NULL CHECK (typeof(amount_minor) = 'integer' AND amount_minor >= 0),
+        currency TEXT NOT NULL CHECK (length(currency) = 3 AND currency = upper(currency)),
+        updated_at TEXT NOT NULL
+    );
+    CREATE INDEX sam_holdings_account ON sam_holdings(account_id);
+    CREATE TABLE sam_step_log (
+        seq INTEGER PRIMARY KEY AUTOINCREMENT,
+        step_id TEXT NOT NULL,
+        source TEXT NOT NULL,
+        title TEXT NOT NULL,
+        status TEXT NOT NULL CHECK (status IN ('accepted', 'dismissed')),
+        decided_at TEXT NOT NULL
+    );
 "];
 
-/// Every table, in the order exports list them.
+/// Every table, in the order exports list them (and imports fill them: a
+/// table comes after the ones it refers to).
 pub const TABLES: &[&str] = &[
     "sam_meta",
     "sam_settings",
@@ -114,6 +143,9 @@ pub const TABLES: &[&str] = &[
     "sam_risk_answers",
     "sam_steps_dismissed",
     "sam_audit",
+    "sam_accounts",
+    "sam_holdings",
+    "sam_step_log",
 ];
 
 /// What a backup holds, shown before restoring it.
@@ -473,7 +505,7 @@ pub(crate) mod tests {
         assert_eq!(schema_of(&conn).unwrap(), 0);
         migrate_to(&mut conn, 1).unwrap();
         assert_eq!(schema_of(&conn).unwrap(), 1);
-        let mut want: Vec<String> = TABLES.iter().map(|t| t.to_string()).collect();
+        let mut want: Vec<String> = TABLES[..8].iter().map(|t| t.to_string()).collect();
         want.sort();
         assert_eq!(tables(&conn), want);
         let app: String = conn
@@ -518,18 +550,126 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn migration_2_adds_accounts_holdings_and_the_step_log() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.pragma_update(None, "foreign_keys", "ON").unwrap();
+        migrate_to(&mut conn, 1).unwrap();
+        // A version-1 database keeps its rows through the step.
+        conn.execute(
+            "INSERT INTO sam_settings (key, json) VALUES ('ui.theme', '\"vana\"')",
+            [],
+        )
+        .unwrap();
+        migrate_to(&mut conn, 2).unwrap();
+        assert_eq!(schema_of(&conn).unwrap(), 2);
+        let mut want: Vec<String> = TABLES.iter().map(|t| t.to_string()).collect();
+        want.sort();
+        assert_eq!(tables(&conn), want);
+        let theme: String = conn
+            .query_row("SELECT json FROM sam_settings", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(theme, "\"vana\"");
+
+        let account = |id: &str, wrapper: &str, source: &str| {
+            conn.execute(
+                "INSERT INTO sam_accounts (id, name, wrapper, source, updated_at) VALUES (?, 'A', ?, ?, 't')",
+                params![id, wrapper, source],
+            )
+        };
+        account("a", "isa", "manual").unwrap();
+        account("b", "pension", "import").unwrap();
+        assert!(
+            account("c", "offshore", "manual").is_err(),
+            "unknown wrapper"
+        );
+        assert!(account("d", "cash", "guessed").is_err(), "unknown source");
+        let holding = |id: &str,
+                       acct: &str,
+                       class: &str,
+                       minor: &dyn rusqlite::ToSql,
+                       cur: &str| {
+            conn.execute(
+                "INSERT INTO sam_holdings (id, account_id, name, asset_class, amount_minor, currency, updated_at)
+                 VALUES (?, ?, 'H', ?, ?, ?, 't')",
+                params![id, acct, class, minor, cur],
+            )
+        };
+        holding("h1", "a", "equity", &1200, "GBP").unwrap();
+        assert!(
+            holding("h2", "zz", "cash", &1, "GBP").is_err(),
+            "no such account"
+        );
+        assert!(
+            holding("h3", "a", "crypto", &1, "GBP").is_err(),
+            "unknown class"
+        );
+        assert!(
+            holding("h4", "a", "cash", &-1, "GBP").is_err(),
+            "below zero"
+        );
+        assert!(
+            holding("h5", "a", "cash", &1.5, "GBP").is_err(),
+            "not whole minor units"
+        );
+        assert!(
+            holding("h6", "a", "cash", &1, "gbp").is_err(),
+            "lower-case code"
+        );
+        assert!(
+            conn.execute("DELETE FROM sam_accounts WHERE id = 'a'", [])
+                .is_err(),
+            "an account with holdings cannot just vanish"
+        );
+        let log = |status: &str| {
+            conn.execute(
+                "INSERT INTO sam_step_log (step_id, source, title, status, decided_at) VALUES ('s', 'steps', 't', ?, 't')",
+                [status],
+            )
+        };
+        log("accepted").unwrap();
+        log("accepted").unwrap();
+        log("dismissed").unwrap();
+        assert!(log("maybe").is_err());
+    }
+
+    #[test]
     fn migrations_run_once_and_survive_reopening() {
         let dir = tempfile::tempdir().unwrap();
         let db = dir.path().join("samriddhi.db");
         let s = Store::open(&db, &KEY).unwrap();
         assert_eq!(s.schema_version().unwrap(), MIGRATIONS.len() as i64);
+        assert_eq!(MIGRATIONS.len(), 2);
         s.set_setting("ui.theme", &"swarna").unwrap();
+        let a = s
+            .add_account("Cash", crate::wealth::Wrapper::Cash, at(NOW))
+            .unwrap();
         drop(s);
         let s = Store::open(&db, &KEY).unwrap();
         assert_eq!(s.schema_version().unwrap(), MIGRATIONS.len() as i64);
         assert_eq!(
             s.setting::<String>("ui.theme").unwrap().as_deref(),
             Some("swarna")
+        );
+        assert_eq!(
+            s.accounts().unwrap(),
+            vec![a],
+            "migration 2 did not run again"
+        );
+        drop(s);
+        // A version-1 file opens and steps up to 2 once.
+        let old = dir.path().join("old.db");
+        {
+            let mut conn = Connection::open(&old).unwrap();
+            conn.execute_batch(&format!("PRAGMA key = \"{}\";", key_literal(&KEY)))
+                .unwrap();
+            migrate_to(&mut conn, 1).unwrap();
+        }
+        let s = Store::open(&old, &KEY).unwrap();
+        assert_eq!(s.schema_version().unwrap(), 2);
+        drop(s);
+        assert_eq!(
+            Store::open(&old, &KEY).unwrap().schema_version().unwrap(),
+            2
         );
     }
 
