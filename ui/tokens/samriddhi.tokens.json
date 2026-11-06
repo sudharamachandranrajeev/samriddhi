@@ -1,138 +1,407 @@
 {
   "$description": "Samriddhi design tokens. One source for every theme. Edit, then run `node ui/scripts/build.mjs`. Colour values are hex; `{name}` in a style value refers to a colour of the same mode.",
   "fonts": {
-    "inter": { "label": "Inter", "stack": "'Inter Variable', system-ui, sans-serif" },
-    "grotesk": { "label": "Space Grotesk", "stack": "'Space Grotesk Variable', system-ui, sans-serif" },
-    "fraunces": { "label": "Fraunces", "stack": "'Fraunces Variable', Georgia, serif" },
-    "mono": { "label": "JetBrains Mono", "stack": "'JetBrains Mono Variable', ui-monospace, monospace" }
+    "inter": {
+      "label": "Inter",
+      "stack": "'Inter Variable', system-ui, sans-serif"
+    },
+    "sora": {
+      "label": "Sora",
+      "stack": "'Sora Variable', 'Inter Variable', system-ui, sans-serif"
+    },
+    "jakarta": {
+      "label": "Plus Jakarta Sans",
+      "stack": "'Plus Jakarta Sans Variable', system-ui, sans-serif"
+    },
+    "fraunces": {
+      "label": "Fraunces",
+      "stack": "'Fraunces Variable', Georgia, serif"
+    },
+    "mono": {
+      "label": "JetBrains Mono",
+      "stack": "'JetBrains Mono Variable', ui-monospace, monospace"
+    }
   },
-  "space": { "xxs": 2, "xs": 4, "sm": 8, "md": 12, "lg": 16, "xl": 20, "xxl": 28, "huge": 40 },
+  "space": {
+    "xxs": 2,
+    "xs": 4,
+    "sm": 8,
+    "md": 12,
+    "lg": 16,
+    "xl": 20,
+    "xxl": 28,
+    "huge": 40
+  },
   "text": {
-    "caption": 12, "small": 13, "body": 14, "lead": 16, "title": 20, "display": 28, "stat": 24
+    "caption": 12,
+    "small": 13,
+    "body": 14,
+    "lead": 16,
+    "title": 20,
+    "display": 28,
+    "stat": 24
   },
   "motion": {
-    "fast": 120, "base": 200, "slow": 320,
+    "fast": 120,
+    "base": 200,
+    "slow": 320,
     "ease": "cubic-bezier(.2, .8, .2, 1)",
     "spring": "cubic-bezier(.34, 1.4, .64, 1)"
   },
   "contrast": {
     "$description": "Pairs every theme and mode must pass (WCAG 2.2). 4.5 = normal text, 3 = large text and UI parts.",
     "pairs": [
-      ["ink", "bg", 4.5], ["ink", "panel", 4.5], ["ink", "panel2", 4.5],
-      ["muted", "panel", 4.5], ["muted", "panel2", 4.5],
-      ["accent", "panel", 4.5], ["onAccent", "accent", 4.5], ["accent", "accentSoft", 4.5],
-      ["chart", "panel", 3], ["chart", "panel2", 3],
-      ["danger", "dangerSoft", 4.5], ["warn", "warnSoft", 4.5], ["ok", "okSoft", 4.5],
-      ["danger", "panel", 4.5], ["warn", "panel", 4.5], ["ok", "panel", 4.5],
-      ["focus", "panel", 3], ["line", "panel", 1.15]
+      [
+        "ink",
+        "bg",
+        4.5
+      ],
+      [
+        "ink",
+        "panel",
+        4.5
+      ],
+      [
+        "ink",
+        "panel2",
+        4.5
+      ],
+      [
+        "muted",
+        "panel",
+        4.5
+      ],
+      [
+        "muted",
+        "panel2",
+        4.5
+      ],
+      [
+        "accent",
+        "panel",
+        4.5
+      ],
+      [
+        "onAccent",
+        "accent",
+        4.5
+      ],
+      [
+        "accent",
+        "accentSoft",
+        4.5
+      ],
+      [
+        "chart",
+        "panel",
+        3
+      ],
+      [
+        "chart",
+        "panel2",
+        3
+      ],
+      [
+        "danger",
+        "dangerSoft",
+        4.5
+      ],
+      [
+        "warn",
+        "warnSoft",
+        4.5
+      ],
+      [
+        "ok",
+        "okSoft",
+        4.5
+      ],
+      [
+        "danger",
+        "panel",
+        4.5
+      ],
+      [
+        "warn",
+        "panel",
+        4.5
+      ],
+      [
+        "ok",
+        "panel",
+        4.5
+      ],
+      [
+        "focus",
+        "panel",
+        3
+      ],
+      [
+        "line",
+        "panel",
+        1.15
+      ]
     ]
   },
   "themes": {
-    "sage": {
-      "label": "Sage",
-      "description": "Calm and light. Soft cards, rounded shapes, quiet green.",
-      "defaultMode": "light",
-      "type": { "body": "inter", "heading": "inter", "number": "inter", "headingWeight": 600, "displayWeight": 600 },
-      "shape": { "radius": 18, "radiusSmall": 12, "control": 12 },
-      "style": {
-        "pageBg": "{bg}",
-        "cardBg": "{panel}",
-        "cardBorder": "0",
-        "cardShadow": "0 1px 2px rgb(0 0 0 / .05), 0 10px 28px rgb(0 0 0 / .06)",
-        "cardBlur": "0px",
-        "titleFont": "body", "titleSize": "13px", "titleCase": "uppercase", "titleTracking": ".08em", "titleColor": "{muted}",
-        "navOnBg": "{accentSoft}", "navOnInk": "{ink}", "navOnBar": "0", "navOnRadius": "12px",
-        "rowBg": "{panel2}", "rowRadius": "12px", "rowDivider": "0",
-        "glow": "0"
-      },
-      "modes": {
-        "light": {
-          "bg": "#eef3f0", "glowA": "#eef3f0", "glowB": "#eef3f0",
-          "panel": "#ffffff", "panel2": "#f5f8f6", "ink": "#14302a", "muted": "#566c66", "line": "#dce6e1",
-          "accent": "#1f7a6c", "onAccent": "#ffffff", "accent2": "#3f8f81", "accentSoft": "#e6f3ef", "chart": "#00876f",
-          "danger": "#b53a0a", "dangerSoft": "#fde7da", "warn": "#8f5706", "warnSoft": "#fbf0cf",
-          "ok": "#14743a", "okSoft": "#dcf3e3", "focus": "#1f7a6c",
-          "bodyFill": "#e3eeea", "bodyLine": "#a9c4bb"
-        },
-        "dark": {
-          "bg": "#0f1a17", "glowA": "#0f1a17", "glowB": "#0f1a17",
-          "panel": "#16231f", "panel2": "#1c2c27", "ink": "#e3efeb", "muted": "#9db3ac", "line": "#2a3d37",
-          "accent": "#5cc4b0", "onAccent": "#062520", "accent2": "#8fd3c4", "accentSoft": "#1d3d36", "chart": "#2f9e89",
-          "danger": "#ff9a70", "dangerSoft": "#3d2116", "warn": "#f0b75a", "warnSoft": "#3a2d12",
-          "ok": "#6fd897", "okSoft": "#173826", "focus": "#5cc4b0",
-          "bodyFill": "#1f332d", "bodyLine": "#3d5c53"
-        }
-      }
-    },
-    "aurora": {
-      "label": "Aurora",
-      "description": "Deep night with glowing accents. Glass cards, the body map lights up.",
+    "swarna": {
+      "label": "Swarna",
+      "description": "Night navy and gold. Glass cards, soft golden light.",
       "defaultMode": "dark",
-      "type": { "body": "grotesk", "heading": "grotesk", "number": "mono", "headingWeight": 600, "displayWeight": 600 },
-      "shape": { "radius": 20, "radiusSmall": 12, "control": 14 },
+      "type": {
+        "body": "inter",
+        "heading": "sora",
+        "number": "mono",
+        "headingWeight": 600,
+        "displayWeight": 600
+      },
+      "shape": {
+        "radius": 20,
+        "radiusSmall": 12,
+        "control": 14
+      },
       "style": {
-        "pageBg": "radial-gradient(1200px 600px at 75% -10%, {glowA} 0%, transparent 60%), radial-gradient(900px 500px at 0% 110%, {glowB} 0%, transparent 60%), {bg}",
-        "cardBg": "color-mix(in srgb, {panel} 78%, transparent)",
+        "pageBg": "radial-gradient(1100px 600px at 80% -15%, {glowA} 0%, transparent 60%), radial-gradient(900px 520px at -5% 110%, {glowB} 0%, transparent 60%), {bg}",
+        "cardBg": "color-mix(in srgb, {panel} 82%, transparent)",
         "cardBorder": "1px solid {line}",
-        "cardShadow": "0 20px 60px rgb(0 0 0 / .35)",
+        "cardShadow": "0 24px 60px rgb(0 0 0 / .28)",
         "cardBlur": "14px",
-        "titleFont": "body", "titleSize": "13px", "titleCase": "uppercase", "titleTracking": ".08em", "titleColor": "{muted}",
-        "navOnBg": "{accentSoft}", "navOnInk": "{ink}", "navOnBar": "0", "navOnRadius": "12px",
-        "rowBg": "{panel2}", "rowRadius": "12px", "rowDivider": "0",
-        "glow": "0 0 24px color-mix(in srgb, {accent} 45%, transparent)"
+        "titleFont": "body",
+        "titleSize": "13px",
+        "titleCase": "uppercase",
+        "titleTracking": ".08em",
+        "titleColor": "{muted}",
+        "navOnBg": "{accentSoft}",
+        "navOnInk": "{ink}",
+        "navOnBar": "0",
+        "navOnRadius": "12px",
+        "rowBg": "{panel2}",
+        "rowRadius": "12px",
+        "rowDivider": "0",
+        "glow": "0 0 22px color-mix(in srgb, {accent} 40%, transparent)"
       },
       "modes": {
         "dark": {
-          "bg": "#070b16", "glowA": "#1d2b6b", "glowB": "#0c3b3a",
-          "panel": "#121a32", "panel2": "#18213d", "ink": "#e8ecff", "muted": "#99a5cb", "line": "#28325c",
-          "accent": "#8aa6ff", "onAccent": "#0a1030", "accent2": "#3ee6c4", "accentSoft": "#1d2a5c", "chart": "#5a7ce8",
-          "danger": "#ff7a96", "dangerSoft": "#3a1a26", "warn": "#ffc561", "warnSoft": "#3a2d12",
-          "ok": "#3ee6c4", "okSoft": "#12352f", "focus": "#8aa6ff",
-          "bodyFill": "#18234a", "bodyLine": "#3a4c8c"
+          "bg": "#080d18",
+          "glowA": "#342e26",
+          "glowB": "#112c2e",
+          "panel": "#121a2c",
+          "panel2": "#172137",
+          "ink": "#eef1f7",
+          "muted": "#9aa3b8",
+          "line": "#333233",
+          "accent": "#e3b45c",
+          "onAccent": "#1a1205",
+          "accent2": "#3fd1a0",
+          "accentSoft": "#2e2a22",
+          "chart": "#e3b45c",
+          "danger": "#ff7f8b",
+          "dangerSoft": "#33202b",
+          "warn": "#f5c66a",
+          "warnSoft": "#322a1a",
+          "ok": "#3fd1a0",
+          "okSoft": "#12302d",
+          "focus": "#e3b45c",
+          "bodyFill": "#18213d",
+          "bodyLine": "#3a4c8c"
         },
         "light": {
-          "bg": "#f3f5ff", "glowA": "#dfe6ff", "glowB": "#d8f6ef",
-          "panel": "#ffffff", "panel2": "#f0f3ff", "ink": "#121a3a", "muted": "#545f8a", "line": "#dfe4f7",
-          "accent": "#3654d6", "onAccent": "#ffffff", "accent2": "#0f9e86", "accentSoft": "#e3e9ff", "chart": "#3654d6",
-          "danger": "#b92c48", "dangerSoft": "#fde3ea", "warn": "#875600", "warnSoft": "#fdf0d2",
-          "ok": "#0b7463", "okSoft": "#d9f4ee", "focus": "#3654d6",
-          "bodyFill": "#e6ebff", "bodyLine": "#aab6e8"
+          "bg": "#f7f3ea",
+          "glowA": "#f3e3bf",
+          "glowB": "#dcefe8",
+          "panel": "#ffffff",
+          "panel2": "#f6f1e6",
+          "ink": "#0e1626",
+          "muted": "#545c6d",
+          "line": "#e6dcc6",
+          "accent": "#7f5a10",
+          "onAccent": "#ffffff",
+          "accent2": "#13795b",
+          "accentSoft": "#f8eed8",
+          "chart": "#9a6d14",
+          "danger": "#b3261e",
+          "dangerSoft": "#fbe3e0",
+          "warn": "#855600",
+          "warnSoft": "#fbefd3",
+          "ok": "#13704f",
+          "okSoft": "#dcf1e8",
+          "focus": "#7f5a10",
+          "bodyFill": "#efe6d2",
+          "bodyLine": "#c9b48a"
         }
       }
     },
-    "journal": {
-      "label": "Journal",
-      "description": "Warm paper and ink. Serif headings, ruled rows, a notebook feel.",
+    "bahi": {
+      "label": "Bahi",
+      "description": "Cream ledger paper, red ink, serif figures and ruled lines.",
       "defaultMode": "light",
-      "type": { "body": "inter", "heading": "fraunces", "number": "fraunces", "headingWeight": 500, "displayWeight": 400 },
-      "shape": { "radius": 6, "radiusSmall": 4, "control": 4 },
+      "type": {
+        "body": "inter",
+        "heading": "fraunces",
+        "number": "fraunces",
+        "headingWeight": 600,
+        "displayWeight": 700
+      },
+      "shape": {
+        "radius": 6,
+        "radiusSmall": 4,
+        "control": 4
+      },
       "style": {
         "pageBg": "{bg}",
         "cardBg": "{panel}",
         "cardBorder": "1px solid {line}",
         "cardShadow": "none",
         "cardBlur": "0px",
-        "titleFont": "heading", "titleSize": "19px", "titleCase": "none", "titleTracking": "0", "titleColor": "{ink}",
-        "navOnBg": "transparent", "navOnInk": "{accent}", "navOnBar": "3px", "navOnRadius": "0",
-        "rowBg": "transparent", "rowRadius": "0", "rowDivider": "1px dashed {line}",
+        "titleFont": "heading",
+        "titleSize": "18px",
+        "titleCase": "none",
+        "titleTracking": "0",
+        "titleColor": "{ink}",
+        "navOnBg": "transparent",
+        "navOnInk": "{accent}",
+        "navOnBar": "3px",
+        "navOnRadius": "0",
+        "rowBg": "transparent",
+        "rowRadius": "0",
+        "rowDivider": "1px solid {line}",
         "glow": "0"
       },
       "modes": {
         "light": {
-          "bg": "#f6f0e6", "glowA": "#f6f0e6", "glowB": "#f6f0e6",
-          "panel": "#fffaf2", "panel2": "#f1e8da", "ink": "#2b2118", "muted": "#6e5d49", "line": "#e3d6c2",
-          "accent": "#a84a22", "onAccent": "#fffaf2", "accent2": "#5b7f5a", "accentSoft": "#f8e6d9", "chart": "#a84a22",
-          "danger": "#a02f27", "dangerSoft": "#f4d9d3", "warn": "#7d560c", "warnSoft": "#f5e8c8",
-          "ok": "#466f43", "okSoft": "#e1ecd9", "focus": "#a84a22",
-          "bodyFill": "#efe3d0", "bodyLine": "#c7ad8a"
+          "bg": "#f6efe2",
+          "glowA": "#f6efe2",
+          "glowB": "#f6efe2",
+          "panel": "#fffaf1",
+          "panel2": "#efe4d1",
+          "ink": "#2a1d14",
+          "muted": "#66553f",
+          "line": "#e2d3bb",
+          "accent": "#9e2b25",
+          "onAccent": "#fffaf1",
+          "accent2": "#2f5d50",
+          "accentSoft": "#f6e3dc",
+          "chart": "#9e2b25",
+          "danger": "#a8322a",
+          "dangerSoft": "#f6e0da",
+          "warn": "#7a540b",
+          "warnSoft": "#f5e8c8",
+          "ok": "#2f6b4f",
+          "okSoft": "#dcebe2",
+          "focus": "#9e2b25",
+          "bodyFill": "#efe4d1",
+          "bodyLine": "#c7ad8a"
         },
         "dark": {
-          "bg": "#1b1612", "glowA": "#1b1612", "glowB": "#1b1612",
-          "panel": "#241d18", "panel2": "#2c241e", "ink": "#f1e6d6", "muted": "#bba892", "line": "#3d332a",
-          "accent": "#e8956a", "onAccent": "#1b1612", "accent2": "#9cbf8f", "accentSoft": "#43291c", "chart": "#c96f43",
-          "danger": "#f29488", "dangerSoft": "#45231f", "warn": "#e0b45c", "warnSoft": "#3d3018",
-          "ok": "#a3c796", "okSoft": "#26331f", "focus": "#e8956a",
-          "bodyFill": "#3a3026", "bodyLine": "#6b5a47"
+          "bg": "#1a1410",
+          "glowA": "#1a1410",
+          "glowB": "#1a1410",
+          "panel": "#231b16",
+          "panel2": "#2c221b",
+          "ink": "#f3e8d8",
+          "muted": "#c2ad94",
+          "line": "#3e3229",
+          "accent": "#ef8a7d",
+          "onAccent": "#1a1410",
+          "accent2": "#8fbfae",
+          "accentSoft": "#43221e",
+          "chart": "#e07a6d",
+          "danger": "#f29488",
+          "dangerSoft": "#45231f",
+          "warn": "#e0b45c",
+          "warnSoft": "#3d3018",
+          "ok": "#9cc9a7",
+          "okSoft": "#22352a",
+          "focus": "#ef8a7d",
+          "bodyFill": "#3a3026",
+          "bodyLine": "#6b5a47"
+        }
+      }
+    },
+    "vana": {
+      "label": "Vana",
+      "description": "Airy mint and periwinkle. Rounded, light and calm.",
+      "defaultMode": "light",
+      "type": {
+        "body": "jakarta",
+        "heading": "jakarta",
+        "number": "jakarta",
+        "headingWeight": 650,
+        "displayWeight": 800
+      },
+      "shape": {
+        "radius": 26,
+        "radiusSmall": 14,
+        "control": 20
+      },
+      "style": {
+        "pageBg": "radial-gradient(800px 500px at 90% 0%, {glowA} 0%, transparent 60%), radial-gradient(700px 500px at 0% 100%, {glowB} 0%, transparent 60%), {bg}",
+        "cardBg": "color-mix(in srgb, {panel} 86%, transparent)",
+        "cardBorder": "0",
+        "cardShadow": "0 1px 2px rgb(16 37 31 / .05), 0 14px 40px rgb(16 37 31 / .08)",
+        "cardBlur": "10px",
+        "titleFont": "body",
+        "titleSize": "13px",
+        "titleCase": "uppercase",
+        "titleTracking": ".08em",
+        "titleColor": "{muted}",
+        "navOnBg": "{accentSoft}",
+        "navOnInk": "{ink}",
+        "navOnBar": "0",
+        "navOnRadius": "14px",
+        "rowBg": "{panel2}",
+        "rowRadius": "14px",
+        "rowDivider": "0",
+        "glow": "0"
+      },
+      "modes": {
+        "light": {
+          "bg": "#eef6f2",
+          "glowA": "#d9e2ff",
+          "glowB": "#c9efdf",
+          "panel": "#ffffff",
+          "panel2": "#f2f8f5",
+          "ink": "#10251f",
+          "muted": "#536a62",
+          "line": "#d8e8e0",
+          "accent": "#0b7559",
+          "onAccent": "#ffffff",
+          "accent2": "#5b6cff",
+          "accentSoft": "#e2f4ec",
+          "chart": "#0b7559",
+          "danger": "#b8304a",
+          "dangerSoft": "#fde3e7",
+          "warn": "#875a0c",
+          "warnSoft": "#fbefd6",
+          "ok": "#0b7559",
+          "okSoft": "#e2f4ec",
+          "focus": "#4a5ae8",
+          "bodyFill": "#e2f4ec",
+          "bodyLine": "#9fcfbd"
+        },
+        "dark": {
+          "bg": "#0d1a17",
+          "glowA": "#1a2350",
+          "glowB": "#0e3a2e",
+          "panel": "#13231f",
+          "panel2": "#182c27",
+          "ink": "#e4f2ec",
+          "muted": "#9fb9af",
+          "line": "#24403a",
+          "accent": "#5fd3ae",
+          "onAccent": "#062019",
+          "accent2": "#9aa6ff",
+          "accentSoft": "#17392f",
+          "chart": "#4cc39d",
+          "danger": "#ff8c9c",
+          "dangerSoft": "#3b1d25",
+          "warn": "#f0bd62",
+          "warnSoft": "#362b14",
+          "ok": "#5fd3ae",
+          "okSoft": "#17392f",
+          "focus": "#9aa6ff",
+          "bodyFill": "#1b3a31",
+          "bodyLine": "#3f6b5d"
         }
       }
     }

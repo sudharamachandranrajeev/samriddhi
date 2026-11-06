@@ -6,7 +6,7 @@ use samriddhi_core::catalogue::Catalogue;
 use samriddhi_core::money::Money;
 use samriddhi_core::profile::{CountryTie, Fact, Goal, Profile, Source};
 use samriddhi_core::risk::{self, Answer, Question, RiskProfile};
-use samriddhi_core::steps::{self, Step};
+use samriddhi_core::steps::{self, Dismissal, Step};
 use samriddhi_core::store::Action;
 use serde::Serialize;
 use serde_json::Value;
@@ -130,6 +130,12 @@ pub fn step_not_for_me(state: State<App>, id: String, reason: String) -> Command
 #[tauri::command]
 pub fn step_restore(state: State<App>, id: String) -> CommandResult<()> {
     state.with(|s| s.step_restore(&id))
+}
+
+/// The steps the user put off or turned down, so a screen can offer them back.
+#[tauri::command]
+pub fn steps_dismissed(state: State<App>) -> CommandResult<Vec<Dismissal>> {
+    state.with(|s| s.dismissals())
 }
 
 #[cfg(test)]

@@ -506,6 +506,7 @@ pub fn run() {
             wealth::step_later,
             wealth::step_not_for_me,
             wealth::step_restore,
+            wealth::steps_dismissed,
             export::export_json,
             export::export_csv,
             export::export_csv_files,

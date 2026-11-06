@@ -10,6 +10,10 @@
     "test": "node --test 'ui/test/*.test.ts' 'app/test/*.test.ts'",
     "dev": "npm -w app run dev",
     "build": "npm -w app run build",
-    "check": "node ui/scripts/build.mjs --check && npm -w app run check"
+    "check": "node ui/scripts/build.mjs --check && npm -w app run check",
+    "screenshots": "SAMRIDDHI_SHOTS=${SAMRIDDHI_SHOTS:-1} node scripts/screenshots.mjs"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.65.0"
   }
 }

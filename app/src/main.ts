@@ -1,4 +1,5 @@
 import '@samriddhi/ui/base.css'
+import './app.css'
 import { mount } from 'svelte'
 import { ui } from '@samriddhi/ui'
 import App from './App.svelte'

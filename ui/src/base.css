@@ -1,6 +1,7 @@
 /* Shared base for every theme. Theme values come from generated/themes.css. */
 @import '@fontsource-variable/inter';
-@import '@fontsource-variable/space-grotesk';
+@import '@fontsource-variable/sora';
+@import '@fontsource-variable/plus-jakarta-sans';
 @import '@fontsource-variable/fraunces';
 @import '@fontsource-variable/jetbrains-mono';
 @import './generated/themes.css';
@@ -27,7 +28,20 @@ a { color: var(--c-accent); }
 
 :focus-visible { outline: 2px solid var(--c-focus); outline-offset: 2px; border-radius: var(--r-sm); }
 
-::view-transition-old(root), ::view-transition-new(root) { animation-duration: var(--dur-slow); }
+/* Blended View Transitions: a soft cross-fade between themes, and between pages a fade with a
+   small rise for the page area only. Calm mode and reduced motion switch them off (theme.svelte.ts
+   and the app skip startViewTransition, and the rules below stop any that still start). */
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: var(--dur-slow); animation-timing-function: var(--ease); }
+::view-transition-old(page) { animation: vt-out var(--dur-base) var(--ease) both; }
+::view-transition-new(page) { animation: vt-in var(--dur-slow) var(--ease) both; }
+@keyframes vt-out { to { opacity: 0; transform: translateY(-6px); } }
+@keyframes vt-in { from { opacity: 0; transform: translateY(8px); } }
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
+}
+:root[data-motion='calm']::view-transition-group(*),
+:root[data-motion='calm']::view-transition-old(*),
+:root[data-motion='calm']::view-transition-new(*) { animation: none !important; }
 
 /* Calm mode: chosen in settings, or the OS asks for reduced motion. Nothing moves or glows. */
 :root[data-motion='calm'] {
@@ -38,6 +52,7 @@ a { color: var(--c-accent); }
 }
 :root[data-motion='calm'] *, :root[data-motion='calm'] *::before, :root[data-motion='calm'] *::after {
   animation-duration: 0ms !important;
+  transition-duration: 0ms !important;
   animation-iteration-count: 1 !important;
   scroll-behavior: auto !important;
 }

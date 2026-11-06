@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { tokens } from '../src/generated/tokens.ts'
+import { tokens, defaultTheme } from '../src/generated/tokens.ts'
 import { check, ratio } from '../src/contrast.ts'
 import { colourNames, themeVars } from '../src/compile.ts'
 import { validateTheme } from '../src/presets.ts'
@@ -30,28 +30,34 @@ test('theme variables resolve colour references and leave no braces behind', () 
   }
 })
 
-const sage = () => JSON.parse(JSON.stringify(tokens.themes.sage))
+const swarna = () => JSON.parse(JSON.stringify(tokens.themes.swarna))
 
-test('an exported built-in theme imports back unchanged', () => {
-  const back = validateTheme(sage())
-  assert.equal(typeof back, 'object')
-  assert.deepEqual(back, sage())
+test('every exported built-in theme imports back unchanged', () => {
+  for (const [id, t] of Object.entries(tokens.themes)) {
+    const copy = JSON.parse(JSON.stringify(t))
+    assert.deepEqual(validateTheme(copy), copy, id)
+  }
+})
+
+test('Swarna is the default, and Swarna, Bahi and Vana all ship', () => {
+  assert.equal(defaultTheme, 'swarna')
+  assert.deepEqual(Object.keys(tokens.themes), ['swarna', 'bahi', 'vana'])
 })
 
 test('imported themes cannot carry arbitrary CSS', () => {
-  const evil = sage()
+  const evil = swarna()
   evil.style.cardShadow = 'none; } body { display: none'
   assert.equal(typeof validateTheme(evil), 'string')
-  const badColour = sage()
+  const badColour = swarna()
   badColour.modes.light.ink = 'red; background: url(https://example.com/x)'
   assert.equal(typeof validateTheme(badColour), 'string')
-  const badFont = sage()
+  const badFont = swarna()
   badFont.type.body = 'Comic Sans'
   assert.equal(typeof validateTheme(badFont), 'string')
 })
 
 test('style looks can be mixed across built-in themes', () => {
-  const mix = sage()
-  for (const k of ['rowBg', 'rowRadius', 'rowDivider'] as const) mix.style[k] = tokens.themes.journal.style[k]
+  const mix = swarna()
+  for (const k of ['rowBg', 'rowRadius', 'rowDivider'] as const) mix.style[k] = tokens.themes.bahi.style[k]
   assert.equal(typeof validateTheme(mix), 'object')
 })

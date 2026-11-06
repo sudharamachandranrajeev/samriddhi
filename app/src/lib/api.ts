@@ -1,0 +1,255 @@
+// The Rust shell's commands, with the exact names and shapes the shell uses
+// (serde camelCase). Inside the app they go to Tauri; in a plain browser (the
+// preview and the screenshot harness) a small in-memory stand-in with
+// made-up data answers instead, loaded only there.
+
+import type { Money } from './money.ts'
+
+export type Phase = 'needsSetup' | 'needsRecovery' | 'locked' | 'open'
+export type KeyStorage = 'keyring' | 'file' | 'androidKeystore'
+
+export interface Status {
+  phase: Phase
+  problem: string | null
+  recoveryPending: boolean
+  keyStorage?: KeyStorage | null
+  hasPin: boolean
+  biometric: boolean
+  waitSecs: number
+  platform: string
+  notice: string | null
+}
+
+export type Source = 'wizard' | 'asked'
+export type RateBand = 'under5' | 'from5To10' | 'from10To20' | 'over20' | 'unknown'
+export type PensionMatch = 'yes' | 'no' | 'notEmployed' | 'unsure'
+export type GoalKind =
+  | 'emergencyCushion'
+  | 'clearDebt'
+  | 'buyHome'
+  | 'retireEarly'
+  | 'extraIncome'
+  | 'familySupportAbroad'
+  | 'learnInvesting'
+
+export interface Debt {
+  label: string
+  balance: Money
+  band: RateBand
+}
+
+export interface CountryTie {
+  code: string
+  residence: boolean
+  taxHome: boolean
+  citizen: boolean
+  holdsMoney: boolean
+  ties: string
+}
+
+export interface Goal {
+  kind: GoalKind
+  target: Money | null
+  /** YYYY-MM-DD */
+  targetDate: string | null
+}
+
+export type Capacity = 'low' | 'medium' | 'high'
+
+export interface RiskProfile {
+  attitude: number
+  capacity: Capacity
+  combined: number
+  label: string
+  summary: string
+}
+
+export interface Profile {
+  takeHome: Money | null
+  costs: Money | null
+  cash: Money | null
+  debts: Debt[] | null
+  pensionMatch: PensionMatch | null
+  isaUsed: { taxYear: number; amount: Money } | null
+  countries: CountryTie[]
+  goals: Goal[]
+  risk: RiskProfile | null
+}
+
+export interface Fact {
+  key: string
+  value: unknown
+  source: Source | 'derived'
+  askedAt: string
+  why: string
+}
+
+export interface ProfileView {
+  profile: Profile
+  facts: Fact[]
+  roughNetWorth: Money | null
+}
+
+export interface RiskOption {
+  id: string
+  text: string
+  score: number
+}
+
+export interface RiskQuestion {
+  id: string
+  part: 'attitude' | 'capacity'
+  text: string
+  why: string
+  options: RiskOption[]
+}
+
+export interface RiskAnswer {
+  questionId: string
+  optionId: string
+}
+
+export type Effort = 'minutes' | 'hours' | 'ongoing'
+
+export interface Step {
+  id: string
+  title: string
+  why: string
+  risk: number
+  effort: Effort
+  source: string
+  asOf: string
+  ask: { fact: string } | null
+}
+
+export interface StepsView {
+  steps: Step[]
+  reviewDue: boolean
+}
+
+export type BackupKind = 'daily' | 'manual' | 'beforeRestore' | 'beforeImport'
+
+export interface Backup {
+  name: string
+  kind: BackupKind
+  bytes: number
+}
+
+export interface Backups {
+  folder: string
+  files: Backup[]
+  userFolder: string | null
+  userFiles: string[]
+}
+
+/** What a backup holds: the data version and rows per table. */
+export interface Summary {
+  schema: number
+  counts: Record<string, number>
+}
+
+export interface TableCount {
+  table: string
+  current: number
+  incoming: number
+}
+
+export interface ImportPreview {
+  exportedAt: string
+  schema: number
+  tables: TableCount[]
+  kept: string[]
+}
+
+/** Every command the screens use, with its arguments and answer. */
+export interface Commands {
+  status: [Record<string, never>, Status]
+  create_store: [Record<string, never>, string]
+  recovery_key: [Record<string, never>, string]
+  recovery_saved: [Record<string, never>, null]
+  unlock_with_recovery: [{ recovery: string }, null]
+  set_pin: [{ pin: string }, null]
+  clear_pin: [Record<string, never>, null]
+  unlock_pin: [{ pin: string }, boolean]
+  unlock_biometric: [Record<string, never>, null]
+  set_biometric: [{ on: boolean }, null]
+  lock: [Record<string, never>, boolean]
+  get_setting: [{ key: string }, unknown]
+  put_setting: [{ key: string; value: unknown }, null]
+  backups: [Record<string, never>, Backups]
+  set_backup_folder: [{ folder: string | null }, null]
+  backup_now: [Record<string, never>, string]
+  save_backup_to: [{ target: string }, null]
+  pick_backup: [Record<string, never>, string | null]
+  inspect_backup: [{ name: string | null; recovery: string | null }, Summary]
+  restore_backup: [{ name: string | null; recovery: string | null }, string]
+  profile_get: [Record<string, never>, ProfileView]
+  set_fact: [{ key: string; value: unknown; source: Source }, null]
+  clear_fact: [{ key: string }, null]
+  set_countries: [{ countries: CountryTie[]; source: Source }, null]
+  set_goals: [{ goals: Goal[]; source: Source }, null]
+  risk_questions: [Record<string, never>, RiskQuestion[]]
+  save_risk_answers: [{ answers: RiskAnswer[] }, RiskProfile | null]
+  risk_result: [Record<string, never>, RiskProfile | null]
+  steps_list: [Record<string, never>, StepsView]
+  step_later: [{ id: string }, null]
+  step_not_for_me: [{ id: string; reason: string }, null]
+  step_restore: [{ id: string }, null]
+  steps_dismissed: [Record<string, never>, Dismissal[]]
+  export_json: [{ target: string }, null]
+  export_csv: [{ folder: string }, string]
+  import_pick: [Record<string, never>, ImportPreview | null]
+  import_apply: [Record<string, never>, string]
+  import_cancel: [Record<string, never>, null]
+}
+
+export interface Dismissal {
+  stepId: string
+  kind: 'later' | 'notForMe'
+  reason: string | null
+  /** YYYY-MM-DD */
+  on: string
+}
+
+export type Command = keyof Commands
+type Args<C extends Command> = Commands[C][0]
+type Answer<C extends Command> = Commands[C][1]
+
+export const inApp = typeof globalThis !== 'undefined' && '__TAURI_INTERNALS__' in globalThis
+
+type Invoke = (cmd: string, args?: Record<string, unknown>) => Promise<unknown>
+let backend: Promise<Invoke> | null = null
+
+function load(): Promise<Invoke> {
+  backend ??= inApp
+    ? import('@tauri-apps/api/core').then((m) => m.invoke as Invoke)
+    : import('./mock.ts').then((m) => m.invoke)
+  return backend
+}
+
+/** Call a command. Errors from Rust arrive as plain-language strings. */
+export async function call<C extends Command>(
+  cmd: C,
+  ...args: Args<C> extends Record<string, never> ? [] : [Args<C>]
+): Promise<Answer<C>> {
+  const invoke = await load()
+  try {
+    return (await invoke(cmd, args[0] as Record<string, unknown> | undefined)) as Answer<C>
+  } catch (e) {
+    throw new Error(typeof e === 'string' ? e : e instanceof Error ? e.message : String(e))
+  }
+}
+
+/** Save and open dialogs. In the browser preview they return a made-up path. */
+export async function chooseSave(title: string, defaultPath: string, ext: string): Promise<string | null> {
+  if (!inApp) return `/home/user/Documents/${defaultPath}`
+  const { save } = await import('@tauri-apps/plugin-dialog')
+  return save({ title, defaultPath, filters: [{ name: ext.toUpperCase(), extensions: [ext] }] })
+}
+
+export async function chooseFolder(title: string): Promise<string | null> {
+  if (!inApp) return '/home/user/Backups'
+  const { open } = await import('@tauri-apps/plugin-dialog')
+  const picked = await open({ title, directory: true, multiple: false })
+  return typeof picked === 'string' ? picked : null
+}
