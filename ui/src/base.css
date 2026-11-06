@@ -1,0 +1,45 @@
+/* Shared base for every theme. Theme values come from generated/themes.css. */
+@import '@fontsource-variable/inter';
+@import '@fontsource-variable/space-grotesk';
+@import '@fontsource-variable/fraunces';
+@import '@fontsource-variable/jetbrains-mono';
+@import './generated/themes.css';
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body { height: 100%; }
+body {
+  /* Phones draw under the status bar; keep content clear of it. */
+  padding-top: env(safe-area-inset-top);
+  background: var(--page-bg);
+  background-attachment: fixed;
+  color: var(--c-ink);
+  font-family: var(--font-body);
+  font-size: var(--text-body);
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  transition: color var(--dur-base) var(--ease);
+}
+
+h1, h2, h3 { font-family: var(--font-heading); font-weight: var(--weight-heading); letter-spacing: -.01em; }
+button, input, select, textarea { font: inherit; color: inherit; }
+a { color: var(--c-accent); }
+
+:focus-visible { outline: 2px solid var(--c-focus); outline-offset: 2px; border-radius: var(--r-sm); }
+
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: var(--dur-slow); }
+
+/* Calm mode: chosen in settings, or the OS asks for reduced motion. Nothing moves or glows. */
+:root[data-motion='calm'] {
+  --dur-fast: 0ms;
+  --dur-base: 0ms;
+  --dur-slow: 0ms;
+  --glow: none;
+}
+:root[data-motion='calm'] *, :root[data-motion='calm'] *::before, :root[data-motion='calm'] *::after {
+  animation-duration: 0ms !important;
+  animation-iteration-count: 1 !important;
+  scroll-behavior: auto !important;
+}
+
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

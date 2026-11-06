@@ -1,0 +1,6 @@
+[tools]
+gitleaks = "8.30.1"
+# Rust with the Android targets, for local APK builds. Desktop builds work
+# with any Rust 1.90+.
+java = "temurin-17"
+rust = { version = "1.99.1", targets = "aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android" }

@@ -1,0 +1,80 @@
+{
+  "$description": "Samriddhi's dated rules. Every rule names its primary source, the day it was checked (asOf) and the day it must be checked again (reviewBy, two months on). Amounts are in minor units (pence). Edit, then run `cargo test -p samriddhi-core catalogue`.",
+  "asOf": "2026-10-30",
+  "reviewBy": "2026-12-30",
+  "rules": [
+    {
+      "id": "uk.emergency-cushion",
+      "kind": "cushion",
+      "months": 3,
+      "asOf": "2026-10-30",
+      "reviewBy": "2026-12-30",
+      "source": "https://www.moneyhelper.org.uk/en/savings/types-of-savings/emergency-savings-how-much-is-enough",
+      "note": "MoneyHelper suggests three to six months of essential costs in an instant access account; three is the floor."
+    },
+    {
+      "id": "uk.high-interest-debt",
+      "kind": "highInterestDebt",
+      "minRatePercent": 10,
+      "asOf": "2026-10-30",
+      "reviewBy": "2026-12-30",
+      "source": "https://www.moneyhelper.org.uk/en/savings/how-to-save/should-i-save-or-pay-off-debt",
+      "note": "Debt that costs more than savings earn is usually cheaper to pay off first. 10% a year is our line for 'high'."
+    },
+    {
+      "id": "uk.isa-allowance.2026-27",
+      "kind": "isaAllowance",
+      "taxYear": 2026,
+      "amount": { "minor": 2000000, "currency": "GBP" },
+      "asOf": "2026-10-30",
+      "reviewBy": "2026-12-30",
+      "source": "https://www.gov.uk/individual-savings-accounts",
+      "note": "In the 2026 to 2027 tax year, the most you can save in ISAs is £20,000."
+    },
+    {
+      "id": "uk.isa-allowance.2027-28",
+      "kind": "isaAllowance",
+      "taxYear": 2027,
+      "amount": { "minor": 2000000, "currency": "GBP" },
+      "asOf": "2026-10-30",
+      "reviewBy": "2026-12-30",
+      "source": "https://www.gov.uk/government/publications/reduction-in-the-cash-individual-savings-account-isa-limit/cash-individual-savings-account-isa-limit-reduction",
+      "note": "The overall ISA allowance stays £20,000 when the cash limit changes."
+    },
+    {
+      "id": "uk.cash-isa-cap-under-65",
+      "kind": "cashIsaCap",
+      "from": "2027-04-06",
+      "underAge": 65,
+      "amount": { "minor": 1200000, "currency": "GBP" },
+      "asOf": "2026-10-30",
+      "reviewBy": "2026-12-30",
+      "source": "https://www.gov.uk/government/publications/reduction-in-the-cash-individual-savings-account-isa-limit/cash-individual-savings-account-isa-limit-reduction",
+      "note": "From 6 April 2027, people under 65 can put at most £12,000 a year into cash ISAs; the rest of the £20,000 can go into other ISAs."
+    },
+    {
+      "id": "uk.pension-match",
+      "kind": "pensionMatch",
+      "asOf": "2026-10-30",
+      "reviewBy": "2026-12-30",
+      "source": "https://www.gov.uk/workplace-pensions/what-you-your-employer-and-the-government-pay",
+      "note": "In some schemes the employer can pay in more than the legal minimum, often when you pay in more."
+    },
+    {
+      "id": "uk.savings-goals",
+      "kind": "guide",
+      "asOf": "2026-10-30",
+      "reviewBy": "2026-12-30",
+      "source": "https://www.moneyhelper.org.uk/en/savings/types-of-savings/how-to-set-a-savings-goal",
+      "note": "A goal with an amount and a date makes saving easier to plan and keep up."
+    },
+    {
+      "id": "uk.risk-and-capacity",
+      "kind": "guide",
+      "asOf": "2026-10-30",
+      "reviewBy": "2026-12-30",
+      "source": "https://www.fca.org.uk/publication/finalised-guidance/fsa-fg11-05.pdf",
+      "note": "FCA guidance keeps the risk a person is willing to take (attitude) apart from the loss they could absorb (capacity for loss)."
+    }
+  ]
+}

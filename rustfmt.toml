@@ -1,0 +1,2 @@
+# Default rustfmt style; the edition keeps `cargo fmt` and editors in step.
+edition = "2024"

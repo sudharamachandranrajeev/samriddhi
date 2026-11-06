@@ -1,0 +1,15 @@
+{
+  "name": "samriddhi",
+  "private": true,
+  "workspaces": [
+    "ui",
+    "app"
+  ],
+  "scripts": {
+    "tokens": "node ui/scripts/build.mjs",
+    "test": "node --test 'ui/test/*.test.ts' 'app/test/*.test.ts'",
+    "dev": "npm -w app run dev",
+    "build": "npm -w app run build",
+    "check": "node ui/scripts/build.mjs --check && npm -w app run check"
+  }
+}
