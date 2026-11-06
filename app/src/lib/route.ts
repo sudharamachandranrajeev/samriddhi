@@ -1,10 +1,11 @@
 // Which screen to show. The shell's `status` decides first (set-up, recovery,
 // lock); once the data is open, the first-run wizard runs until it is
-// finished; after that the page comes from the address (#home, #settings).
+// finished; after that the page comes from the address (#home, #wealth,
+// #plan, #insights, #settings).
 
 import type { Status } from './api.ts'
 
-export type Page = 'home' | 'settings'
+export type Page = 'home' | 'wealth' | 'plan' | 'insights' | 'settings'
 export type View =
   | { kind: 'loading' }
   | { kind: 'problem'; text: string }
@@ -13,7 +14,7 @@ export type View =
   | { kind: 'unlock' }
   | { kind: 'app'; page: Page }
 
-export const PAGES: Page[] = ['home', 'settings']
+export const PAGES: Page[] = ['home', 'wealth', 'plan', 'insights', 'settings']
 
 export function pageFromHash(hash: string): Page {
   const id = hash.replace(/^#\/?/, '').split(/[/?]/)[0]

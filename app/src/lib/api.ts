@@ -194,6 +194,214 @@ export interface SecurityStatus {
   rows: SecurityRow[]
 }
 
+export type AssetClass = 'equity' | 'bonds' | 'property' | 'gold' | 'cash'
+/** The kind of account a holding sits in. */
+export type Wrapper = 'isa' | 'pension' | 'taxable' | 'cash'
+/** A fraction of the portfolio per class (0 to 1). */
+export type ClassWeights = Record<AssetClass, number>
+
+export interface Account {
+  id: string
+  name: string
+  wrapper: Wrapper
+  source: 'manual' | 'import'
+}
+
+export interface Holding {
+  id: string
+  accountId: string
+  name: string
+  assetClass: AssetClass
+  amount: Money
+}
+
+/** Holdings added up in the base currency. Others are listed, not counted, until exchange rates arrive. */
+export interface Totals {
+  base: string
+  total: Money
+  byClass: Record<AssetClass, Money>
+  weights: ClassWeights
+  notCountedNoFx: Holding[]
+}
+
+export interface AccountView {
+  account: Account
+  holdings: Holding[]
+  /** The holdings in the base currency, added up. */
+  counted: Money
+  /** Holdings in other currencies, left out of `counted`. */
+  notCounted: number
+}
+
+export interface WealthView {
+  base: string
+  accounts: AccountView[]
+  totals: Totals
+  /** Currencies left out of the totals, each named once. */
+  leftOut: string[]
+}
+
+export interface TargetAllocation {
+  weights: ClassWeights
+  expectedReturn: number
+  volatility: number
+  riskScore: number
+  horizonYears: number
+}
+
+export interface GoalInput {
+  /** A goal kind ('buyHome'...) or 'General investing' when there are no goals. */
+  name: string
+  target: Money | null
+  horizonYears: number
+  /** The goal had no date: the horizon is the default for its kind. */
+  horizonAssumed: boolean
+}
+
+export interface PlanResult {
+  perGoal: { goal: GoalInput; allocation: TargetAllocation }[]
+  blended: ClassWeights
+  tier: number | null
+  assumptionsAsOf: string
+  assumptionsSource: string
+}
+
+export interface ClassAssumption {
+  class: AssetClass
+  expectedReturn: number
+  volatility: number
+}
+
+export interface PlanView {
+  /** Null until the risk questions are answered (or a tier is chosen). */
+  plan: PlanResult | null
+  /** The growth cap each goal's horizon allows, in `plan.perGoal` order. */
+  caps: number[]
+  tier: number | null
+  tierCount: number
+  riskLevel: number | null
+  riskLabel: string | null
+  assumptions: ClassAssumption[]
+  assumptionsNote: string
+  disclosure: string
+}
+
+export interface Bands {
+  over: number
+  under: number
+}
+
+export interface DriftView {
+  assetClass: AssetClass
+  target: number
+  current: number
+  drift: number
+  value: Money
+}
+
+export interface RebalancePlan {
+  flows: Record<AssetClass, Money>
+  afterWeights: ClassWeights
+  stillBreached: boolean
+}
+
+export interface RebalanceView {
+  base: string
+  total: Money
+  hasPlan: boolean
+  rows: DriftView[]
+  bands: Bands
+  breached: boolean
+  leftOut: number
+  leftOutCurrencies: string[]
+  cashFlow: RebalancePlan | null
+  /** The sell-based option, while bands stay breached. Never an order. */
+  trades: Record<AssetClass, Money> | null
+  disclosure: string
+}
+
+export interface TrackRecord {
+  trials: number
+  hits: number
+  maeModel: number
+  maeNaive: number
+}
+
+export interface Forecast {
+  mean: number[]
+  lower: number[]
+  upper: number[]
+  confidence: number
+  alpha: number
+  track: TrackRecord
+}
+
+export type RebalanceRule = 'none' | 'annual' | 'threshold'
+
+export interface BacktestView {
+  rule: RebalanceRule
+  label: string
+  /** The value at the start and at each year end. */
+  yearly: Money[]
+  finalValue: Money
+  cagr: number
+  annualVol: number
+  maxDrawdown: number
+  rebalances: number
+}
+
+export interface DirectIndexView {
+  stocks: number
+  months: number
+  harvestThreshold: number
+  taxRate: number
+  indexValues: Money[]
+  portfolioValues: Money[]
+  harvestedLosses: Money
+  harvests: number
+  taxOffsetValue: Money
+  trackingDifference: number
+  label: string
+}
+
+export interface InsightsView {
+  base: string
+  forecasts: { assetClass: AssetClass; forecast: Forecast; history: number[] }[]
+  backtestTarget: ClassWeights
+  targetFromPlan: boolean
+  start: Money
+  backtests: BacktestView[]
+  directIndexing: DirectIndexView
+  sampleLabel: string
+  assumptionsAsOf: string
+  disclosure: string
+}
+
+export interface HoldingsImportPreview {
+  newAccounts: number
+  updatedAccounts: number
+  unchangedAccounts: number
+  newHoldings: number
+  updatedHoldings: number
+  unchangedHoldings: number
+  notCountedNoFx: number
+  /** Rows that will be skipped, with the reason (never the file's values). */
+  problems: string[]
+}
+
+export interface HoldingsImportView {
+  file: string
+  base: string
+  accounts: number
+  holdings: number
+  preview: HoldingsImportPreview
+}
+
+export interface HoldingsImportDone {
+  backup: string
+  done: HoldingsImportPreview
+}
+
 export type BackupKind = 'daily' | 'manual' | 'preUpdate' | 'beforeRestore' | 'beforeImport'
 
 export interface Backup {
@@ -303,6 +511,23 @@ export interface Commands {
   feed_list: [Record<string, never>, FeedView]
   /** Records intent in the step log only; nothing acts on it. */
   step_accept: [{ id: string }, null]
+  wealth_view: [Record<string, never>, WealthView]
+  account_add: [{ name: string; wrapper: Wrapper }, Account]
+  account_update: [{ id: string; name: string; wrapper: Wrapper }, null]
+  /** Removes the account and every holding in it. */
+  account_delete: [{ id: string }, null]
+  holding_add: [{ accountId: string; name: string; assetClass: AssetClass; amount: Money }, Holding]
+  holding_update: [{ holding: Holding }, null]
+  holding_delete: [{ id: string }, null]
+  /** Pick a JSON or CSV holdings file and see what it would change; null when cancelled. */
+  holdings_import_pick: [Record<string, never>, HoldingsImportView | null]
+  /** Backs up first; adds or updates, never deletes. */
+  holdings_import_apply: [Record<string, never>, HoldingsImportDone]
+  holdings_import_cancel: [Record<string, never>, null]
+  plan_view: [Record<string, never>, PlanView]
+  /** `cashFlow`: a contribution (+) or withdrawal (-) to spread; only worked out, never made. */
+  rebalance_view: [{ cashFlow: Money | null }, RebalanceView]
+  insights_view: [Record<string, never>, InsightsView]
   ai_settings_get: [Record<string, never>, AiSettingsView]
   ai_settings_set: [{ settings: AiSettings }, null]
   ai_key_set: [{ key: string }, null]

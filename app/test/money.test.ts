@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { currencyFor, exponent, formatMoney, monthsCovered, parseAmount, roughNetWorth, sumMoney, toInput } from '../src/lib/money.ts'
+import { currencyFor, exponent, formatMoney, monthsCovered, parseAmount, roughNetWorth, sumMoney, toInput, wholeUnits } from '../src/lib/money.ts'
 
 const gbp = (minor: number) => ({ minor, currency: 'GBP' })
 
@@ -84,4 +84,10 @@ test('sums, cushion months and helpers', () => {
   assert.equal(currencyFor('IN'), 'INR')
   assert.equal(currencyFor('AE'), 'AED')
   assert.equal(currencyFor('SG'), 'GBP')
+})
+
+test('model figures round to whole units in their own currency', () => {
+  assert.deepEqual(wholeUnits({ minor: 2_185_768, currency: 'GBP' }), { minor: 2_185_800, currency: 'GBP' })
+  assert.deepEqual(wholeUnits({ minor: -149, currency: 'GBP' }), { minor: -100, currency: 'GBP' })
+  assert.deepEqual(wholeUnits({ minor: 1234, currency: 'JPY' }), { minor: 1234, currency: 'JPY' })
 })

@@ -3,6 +3,9 @@
   // step with the encrypted settings, and blends between screens.
   import { Shell, ui, type ModePref, type MotionPref } from '@samriddhi/ui'
   import House from '@lucide/svelte/icons/house'
+  import Wallet from '@lucide/svelte/icons/wallet'
+  import ChartPie from '@lucide/svelte/icons/chart-pie'
+  import ChartLine from '@lucide/svelte/icons/chart-line'
   import SettingsIcon from '@lucide/svelte/icons/settings'
   import Lock from '@lucide/svelte/icons/lock'
   import { call, inApp, type Status } from './lib/api.ts'
@@ -16,6 +19,9 @@
   import Unlock from './screens/Unlock.svelte'
   import Home from './screens/Home.svelte'
   import Settings from './screens/Settings.svelte'
+  import Wealth from './screens/Wealth.svelte'
+  import Plan from './screens/Plan.svelte'
+  import Insights from './screens/Insights.svelte'
 
   let status = $state<Status | null>(null)
   let setupDone = $state<boolean | null>(null)
@@ -26,6 +32,9 @@
 
   const nav = [
     { id: 'home', label: 'Home', icon: House },
+    { id: 'wealth', label: 'Wealth', icon: Wallet },
+    { id: 'plan', label: 'Plan', icon: ChartPie },
+    { id: 'insights', label: 'Insights', icon: ChartLine },
     { id: 'settings', label: 'Settings', icon: SettingsIcon },
   ]
 
@@ -110,7 +119,7 @@
 {:else if (view.kind === 'unlock' || view.kind === 'recover') && status}
   {#key view.kind}<Unlock {status} recover={view.kind === 'recover'} onunlocked={refresh} />{/key}
 {:else if view.kind === 'app' && status}
-  <Shell brand="Samriddhi" items={nav} current={view.page} onnavigate={go} tabs={2}>
+  <Shell brand="Samriddhi" items={nav} current={view.page} onnavigate={go} tabs={5}>
     {#snippet footer()}
       <p>{inApp ? 'Local mode: your data stays on this device.' : 'Browser preview: made-up data, kept in memory only.'}</p>
       {#if status?.hasPin || status?.biometric}
@@ -122,6 +131,12 @@
       {#key view.page}
         {#if view.page === 'home'}
           <Home onanswer={() => { location.hash = 'settings/answers' }} />
+        {:else if view.page === 'wealth'}
+          <Wealth />
+        {:else if view.page === 'plan'}
+          <Plan />
+        {:else if view.page === 'insights'}
+          <Insights />
         {:else}
           <Settings {status} section={section} onstatus={refresh} />
         {/if}

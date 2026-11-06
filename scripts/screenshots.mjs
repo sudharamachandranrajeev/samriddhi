@@ -1,5 +1,5 @@
-// Renders the README screenshots: every wizard screen, home and settings, in
-// each built-in theme. It runs the app in a browser, where the Rust shell is
+// Renders the README screenshots: every wizard screen, home, wealth, plan,
+// insights and settings, in each built-in theme. It runs the app in a browser, where the Rust shell is
 // replaced by the in-memory stand-in (app/src/lib/mock.ts), so every figure
 // is made up and nothing is read from or written to a real store.
 //
@@ -123,7 +123,7 @@ for (const [theme, mode] of Object.entries(THEMES)) {
   await page.getByRole('heading', { name: 'Settings' }).waitFor()
   await shot(page, `${p}settings`)
   await page.getByRole('radio', { name: 'Backups' }).click()
-  await page.getByText('Kept in').waitFor()
+  await page.getByText(/^Kept in /).waitFor()
   await shot(page, `${p}settings-backups`)
   await page.close()
 
@@ -132,7 +132,46 @@ for (const [theme, mode] of Object.entries(THEMES)) {
   const second = await open(theme, other, '?demo=home')
   await second.locator('article.step').first().waitFor()
   await shot(second, `${p}home-${other}`)
+  await second.evaluate(() => (location.hash = 'insights'))
+  await second.getByText('Within bands').or(second.getByText('Outside bands')).first().waitFor()
+  await second.getByText('Tracking difference').first().waitFor()
+  await shot(second, `${p}insights-${other}`)
   await second.close()
+
+  // Wealth, Plan, Insights and the newer Settings sections, from a finished
+  // set-up with synthetic accounts and holdings.
+  const demo = await open(theme, mode, '?demo=home#wealth')
+  await demo.getByRole('heading', { name: 'Stocks and shares ISA' }).waitFor()
+  await shot(demo, `${p}wealth`)
+  await demo.evaluate(() => (location.hash = 'plan'))
+  await demo.getByRole('heading', { name: 'By goal' }).waitFor()
+  await shot(demo, `${p}plan`)
+  await demo.getByLabel('Tier 4').check()
+  await demo.getByText('Tier mode does not de-risk short goals').first().waitFor()
+  await shot(demo, `${p}plan-tier`)
+  await demo.getByLabel('Per goal').check()
+  await demo.evaluate(() => (location.hash = 'insights'))
+  await demo.getByText('Outside bands').or(demo.getByText('Within bands')).first().waitFor()
+  await shot(demo, `${p}insights`)
+  await demo.evaluate(() => (location.hash = 'settings/holdings'))
+  await button(demo, 'Choose a holdings file…').click()
+  await demo.getByText('will be skipped').first().waitFor()
+  await shot(demo, `${p}settings-holdings`)
+  await demo.getByRole('radio', { name: 'AI', exact: true }).click()
+  await demo.getByLabel('Use an AI model to explain my steps').check()
+  await demo.fill('#ai-model', 'llama3.2')
+  await button(demo, 'Save AI settings').click()
+  await button(demo, 'Show what would be sent').click()
+  await demo.getByRole('heading', { name: 'Your text' }).waitFor()
+  await shot(demo, `${p}settings-ai`)
+  await demo.getByRole('radio', { name: 'Security', exact: true }).click()
+  await demo.getByText('Data encrypted').first().waitFor()
+  await shot(demo, `${p}settings-security`)
+  await demo.evaluate(() => (location.hash = 'home'))
+  await demo.getByText(/more steps$/).click()
+  await demo.getByText('Rebalance to target').first().waitFor()
+  await shot(demo, `${p}home-steps`)
+  await demo.close()
 
   // Settings, Updates on a copy that updated once and sees a newer version.
   const third = await open(theme, mode, '?demo=update#settings/updates')
@@ -162,6 +201,14 @@ await phone.goto(`${BASE}?demo=home`)
 await phone.locator('article.step').first().waitFor()
 await phone.evaluate(() => document.fonts.ready)
 await phone.screenshot({ path: `${OUT}swarna-phone.png` })
+await phone.evaluate(() => (location.hash = 'insights'))
+await phone.getByText('Outside bands').or(phone.getByText('Within bands')).first().waitFor()
+await phone.waitForTimeout(150)
+await phone.screenshot({ path: `${OUT}swarna-phone-insights.png` })
+await phone.evaluate(() => (location.hash = 'wealth'))
+await phone.getByRole('heading', { name: 'Stocks and shares ISA' }).waitFor()
+await phone.waitForTimeout(150)
+await phone.screenshot({ path: `${OUT}swarna-phone-wealth.png` })
 
 await browser.close()
 await server.close()

@@ -6,6 +6,8 @@
 mod ai;
 mod data;
 mod export;
+mod holdings;
+mod insights;
 mod lockout;
 mod security;
 mod sentinel;
@@ -54,6 +56,8 @@ struct Inner {
     pending_import: Option<Export>,
     /// An AI preview the user saw, waiting for them to press send.
     ai_pending: Option<ai::Pending>,
+    /// A holdings file read for import, waiting for the user to confirm.
+    pending_holdings: Option<samriddhi_core::holdings_import::ParsedHoldings>,
 }
 
 struct App {
@@ -418,6 +422,7 @@ const UI_SETTINGS: &[&str] = &[
     "ui.motion",
     "terms.accepted",
     "setup.done",
+    "plan.tier",
 ];
 
 fn ui_setting(key: &str) -> CommandResult<()> {
@@ -440,6 +445,8 @@ fn check_setting(key: &str, value: &Value) -> CommandResult<()> {
         }),
         "ui.mode" => one_of(&["system", "light", "dark"]),
         "ui.motion" => one_of(&["system", "calm", "full"]),
+        // A tier 1-7 turns tier mode on; null turns it off (per-goal).
+        "plan.tier" => value.is_null() || samriddhi_core::plan::tier_from(Some(value)).is_some(),
         _ => value.is_boolean(),
     };
     ok.then_some(())
@@ -564,6 +571,19 @@ pub fn run() {
             wealth::steps_dismissed,
             wealth::feed_list,
             wealth::step_accept,
+            holdings::wealth_view,
+            holdings::account_add,
+            holdings::account_update,
+            holdings::account_delete,
+            holdings::holding_add,
+            holdings::holding_update,
+            holdings::holding_delete,
+            holdings::holdings_import_pick,
+            holdings::holdings_import_apply,
+            holdings::holdings_import_cancel,
+            insights::plan_view,
+            insights::rebalance_view,
+            insights::insights_view,
             ai::ai_settings_get,
             ai::ai_settings_set,
             ai::ai_key_set,
@@ -756,6 +776,16 @@ mod tests {
         assert!(check_setting("ui.motion", &json!("calm")).is_ok());
         assert!(check_setting("terms.accepted", &json!(true)).is_ok());
         assert!(check_setting("terms.accepted", &json!("yes")).is_err());
+        for t in 1..=7 {
+            assert!(check_setting("plan.tier", &json!(t)).is_ok(), "{t}");
+        }
+        assert!(
+            check_setting("plan.tier", &json!(null)).is_ok(),
+            "null is per-goal"
+        );
+        for bad in [json!(0), json!(8), json!(2.5), json!("3"), json!(true)] {
+            assert!(check_setting("plan.tier", &bad).is_err(), "{bad}");
+        }
         // AI settings have their own command with its own checks.
         for key in [
             "lock.pin",

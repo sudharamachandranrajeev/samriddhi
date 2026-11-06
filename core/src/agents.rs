@@ -581,7 +581,7 @@ impl Store {
         let wrappers = self.accounts()?.iter().map(|a| a.wrapper).collect();
         Ok(AgentContext {
             now,
-            plan: plan::plan_for_profile(&a, &p, steps::today(now), None),
+            plan: plan::plan_for_profile(&a, &p, steps::today(now), self.plan_tier()?),
             risk: p.risk,
             totals: Some(self.totals(base)?),
             wrappers,

@@ -112,7 +112,9 @@ impl Store {
     /// answered (there is no plan to explain before that).
     pub fn digest(&self, now: Timestamp) -> Result<Option<Value>> {
         let p = self.profile()?;
-        let Some(plan) = plan_for_profile(&Assumptions::builtin(), &p, today(now), None) else {
+        let Some(plan) =
+            plan_for_profile(&Assumptions::builtin(), &p, today(now), self.plan_tier()?)
+        else {
             return Ok(None);
         };
         let totals = self.totals(base_currency(&p))?;

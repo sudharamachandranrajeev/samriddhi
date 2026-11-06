@@ -15,6 +15,7 @@ use crate::assets::{ALL, AssetClass, Assumptions, ClassWeights, GROWTH};
 use crate::money::Money;
 use crate::mvo::{self, Options};
 use crate::profile::{Goal, GoalKind, Profile};
+use crate::store::{Result, Store};
 
 /// No single growth class above this share.
 pub const MAX_SINGLE_CLASS: f64 = 0.70;
@@ -293,6 +294,38 @@ pub fn plan_for_profile(
     Some(build_plan(a, score, &goal_inputs(&p.goals, today), tier))
 }
 
+/// The setting that turns tier mode on: a whole number from 1 to 7. Absent
+/// (or null) means per-goal glide paths.
+pub const TIER_SETTING: &str = "plan.tier";
+
+/// A stored tier, if it is a whole number from 1 to [`RISK_TIER_COUNT`];
+/// anything else means per-goal glide paths.
+pub fn tier_from(value: Option<&serde_json::Value>) -> Option<i32> {
+    value
+        .and_then(serde_json::Value::as_i64)
+        .filter(|t| (1..=i64::from(RISK_TIER_COUNT)).contains(t))
+        .and_then(|t| i32::try_from(t).ok())
+}
+
+impl Store {
+    /// The tier the user chose, or `None` for per-goal glide paths.
+    pub fn plan_tier(&self) -> Result<Option<i32>> {
+        let v: Option<serde_json::Value> = self.setting(TIER_SETTING)?;
+        Ok(tier_from(v.as_ref()))
+    }
+
+    /// The plan for what is stored, with the user's tier choice. `None`
+    /// until the risk questions are answered (or a tier is chosen).
+    pub fn plan(&self, today: Date) -> Result<Option<PlanResult>> {
+        Ok(plan_for_profile(
+            &Assumptions::builtin(),
+            &self.profile()?,
+            today,
+            self.plan_tier()?,
+        ))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -471,5 +504,55 @@ mod tests {
         let t = plan_for_profile(&a(), &p, today, Some(4)).unwrap();
         assert_eq!(t.tier, Some(4));
         assert_eq!(t.per_goal[0].allocation.risk_score, 50.0);
+    }
+
+    #[test]
+    fn only_a_whole_tier_from_one_to_seven_turns_tier_mode_on() {
+        use serde_json::json;
+        assert_eq!(tier_from(None), None);
+        for ok in 1..=7 {
+            assert_eq!(tier_from(Some(&json!(ok))), Some(ok));
+        }
+        for bad in [
+            json!(0),
+            json!(8),
+            json!(-1),
+            json!(3.5),
+            json!("3"),
+            json!(null),
+            json!(true),
+        ] {
+            assert_eq!(tier_from(Some(&bad)), None, "{bad}");
+        }
+    }
+
+    #[test]
+    fn the_stored_plan_follows_the_tier_setting() {
+        use crate::store::tests::{NOW, at};
+        let mut s = Store::memory().unwrap();
+        let today = Date::constant(2026, 11, 6);
+        assert_eq!(s.plan_tier().unwrap(), None);
+        assert!(s.plan(today).unwrap().is_none(), "no risk answers, no tier");
+        s.set_setting(TIER_SETTING, &6).unwrap();
+        let p = s.plan(today).unwrap().unwrap();
+        assert_eq!(p.tier, Some(6));
+        let cleared: Option<i32> = None;
+        s.set_setting(TIER_SETTING, &cleared).unwrap();
+        assert_eq!(s.plan_tier().unwrap(), None);
+        // A goal due within two years is capped without tier mode...
+        s.set_goals(
+            &[Goal {
+                kind: GoalKind::BuyHome,
+                target: None,
+                target_date: Some(Date::constant(2027, 6, 1)),
+            }],
+            crate::profile::Source::Asked,
+            at(NOW),
+        )
+        .unwrap();
+        s.set_setting(TIER_SETTING, &7).unwrap();
+        // ...and in tier mode it does not: the plan says so with `tier`.
+        let p = s.plan(today).unwrap().unwrap();
+        assert!(p.per_goal[0].allocation.growth_share() > max_growth_share(0.5));
     }
 }

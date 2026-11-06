@@ -12,8 +12,11 @@
   import MoneyEditor from '../components/MoneyEditor.svelte'
   import RiskEditor from '../components/RiskEditor.svelte'
   import UpdatesPanel from '../components/UpdatesPanel.svelte'
+  import AiPanel from '../components/AiPanel.svelte'
+  import HoldingsImport from '../components/HoldingsImport.svelte'
+  import SecurityPanel from '../components/SecurityPanel.svelte'
 
-  type Section = 'look' | 'lock' | 'backups' | 'updates' | 'export' | 'answers' | 'safety'
+  type Section = 'look' | 'lock' | 'backups' | 'updates' | 'export' | 'holdings' | 'answers' | 'ai' | 'security' | 'safety'
   let { status, section: initial = 'look', onstatus }: { status: Status; section?: string; onstatus: () => Promise<void> } = $props()
 
   const SECTIONS: { value: Section; label: string }[] = [
@@ -22,7 +25,10 @@
     { value: 'backups', label: 'Backups' },
     { value: 'updates', label: 'Updates' },
     { value: 'export', label: 'Export' },
+    { value: 'holdings', label: 'Import holdings' },
     { value: 'answers', label: 'Your answers' },
+    { value: 'ai', label: 'AI' },
+    { value: 'security', label: 'Security' },
     { value: 'safety', label: 'Safety' },
   ]
   // svelte-ignore state_referenced_locally
@@ -35,6 +41,9 @@
     sam_risk_answers: 'Risk answers',
     sam_steps_dismissed: 'Hidden steps',
     sam_settings: 'Settings',
+    sam_accounts: 'Accounts',
+    sam_holdings: 'Holdings',
+    sam_step_log: 'Step choices',
     sam_audit: 'Activity log',
     sam_meta: 'Data version',
   }
@@ -180,7 +189,7 @@
 <header class="page-head">
   <div>
     <h1 tabindex="-1">Settings</h1>
-    <p>How Samriddhi looks and locks, your backups and exports, and the answers you gave.</p>
+    <p>How Samriddhi looks and locks, your backups, exports and imports, the answers you gave, optional AI and how safe your data is.</p>
   </div>
 </header>
 
@@ -307,6 +316,15 @@
       </div>
     </Card>
   </div>
+{:else if section === 'holdings'}
+  <p class="why">Bring in accounts and holdings from a file instead of typing them, then see them on the Wealth screen.</p>
+  <HoldingsImport onimported={() => (location.hash = '#wealth')} />
+{:else if section === 'ai'}
+  <p class="why">Optional: let an AI model put your steps into plain words. You see every word before it is sent, or leave it off.</p>
+  <AiPanel />
+{:else if section === 'security'}
+  <p class="why">What keeps your data safe on this device, so you can see at a glance whether anything needs a look.</p>
+  <SecurityPanel {mobile} />
 {:else if section === 'answers'}
   <Card title="Your answers" explain="Change anything you told Samriddhi. Changes are used straight away for your net worth and next steps.">
     <div class="tabs"><Segmented label="Which answers" options={[{ value: 'money', label: 'Money' }, { value: 'countries', label: 'Countries' }, { value: 'goals', label: 'Goals' }, { value: 'risk', label: 'Risk' }]} value={part} onchange={(v) => (part = v as Part)} /></div>
@@ -322,13 +340,14 @@
     <ol class="safety">
       {#each SAFETY as s (s.title)}<li><strong>{s.title}.</strong> <span class="muted">{s.text}</span></li>{/each}
     </ol>
-    <p class="muted small about">Samriddhi 0.1.0 · local mode: your data stays on this device · MIT licence <Explain title="Local mode" text="In this version everything runs on this device: no bank links, no AI, no tracking. The only time it goes online is to check GitHub for a new version, which you can turn off in Settings, Updates." /></p>
+    <p class="muted small about">Samriddhi 0.1.0 · local mode: your data stays on this device · MIT licence <Explain title="Local mode" text="Everything runs on this device: no bank links, no tracking. It goes online only to check GitHub for a new version, which you can turn off in Settings, Updates, and, if you turn AI on, to send a text you have read first to the model you chose." /></p>
   </Card>
 {/if}
 
 <Hint {...HINTS.settings} />
 
 <style>
+  .why { margin-bottom: var(--space-md); max-width: 70ch; color: var(--c-muted); }
   .tabs { margin-bottom: var(--space-lg); overflow-x: auto; }
   .files { list-style: none; display: flex; flex-direction: column; }
   .files li { display: flex; justify-content: space-between; align-items: center; gap: var(--space-md); padding: 8px 0; border-bottom: 1px solid var(--c-line); }

@@ -1,8 +1,9 @@
 <script lang="ts">
-  // Home: a rough net worth from the wizard's answers, the next best step,
-  // what we know about you, and a learning hint. Every figure has a "?".
+  // Home: a rough net worth from the wizard's answers, the next best step
+  // (the rules' steps and the agents' suggestions in one feed), what we know
+  // about you, and a learning hint. Every figure has a "?".
   import { Button, Card, Explain, Stat } from '@samriddhi/ui'
-  import { call, type CountryTie, type Dismissal, type ProfileView, type StepsView } from '../lib/api.ts'
+  import { call, type CountryTie, type Dismissal, type FeedView, type ProfileView } from '../lib/api.ts'
   import { countryName } from '../lib/countries.ts'
   import { homeHint } from '../lib/hints.ts'
   import { formatMoney, monthsCovered, sumMoney } from '../lib/money.ts'
@@ -14,14 +15,14 @@
   let { onanswer }: { onanswer: (fact: string) => void } = $props()
 
   let view = $state<ProfileView | null>(null)
-  let steps = $state<StepsView | null>(null)
+  let steps = $state<FeedView | null>(null)
   let hidden = $state<Dismissal[]>([])
   let titles = $state<Record<string, string>>({})
   let showHidden = $state(false)
 
   async function load() {
     try {
-      ;[view, steps, hidden] = await Promise.all([call('profile_get'), call('steps_list'), call('steps_dismissed')])
+      ;[view, steps, hidden] = await Promise.all([call('profile_get'), call('feed_list'), call('steps_dismissed')])
       for (const s of steps.steps) titles[s.id] = s.title
     } catch (e) {
       toast.error(e)
@@ -63,9 +64,12 @@
 {#if steps?.reviewDue}
   <p class="note-box warn" role="status">Some rules are past their review date, so a figure may be out of date. Check the source before acting.</p>
 {/if}
+{#if steps?.errors.length}
+  <p class="note-box warn" role="status">Some checks could not run this time ({steps.errors.length}), so a suggestion may be missing. The rest stand.</p>
+{/if}
 
 <div class="grid home">
-  <Card title="Net worth" explain="What you own minus what you owe. For now it is only your cash savings minus your debts, from your answers in set-up, so homes, pensions and investments are not in it yet.">
+  <Card title="Net worth" explain="What you own minus what you owe. For now it is only your cash savings minus your debts, from your answers in set-up, so homes, pensions and investments are not in it yet. Holdings you enter under Wealth are added up there.">
     {#if view?.roughNetWorth}
       <div class="big-figure" aria-describedby="nw-note">{formatMoney(view.roughNetWorth)}</div>
     {:else}
@@ -87,7 +91,7 @@
     </div>
   </Card>
 
-  <Card title="Next best step" explain="One step at a time, from simple dated rules: a missing cushion, costly debt, a tax-free allowance about to reset, or a fact we still need. Each shows its risk, effort and source.">
+  <Card title="Next best step" explain="One step at a time, from simple dated rules (a missing cushion, costly debt, a tax-free allowance about to reset, a fact we still need) and from Samriddhi's checks on your plan and holdings. Each shows its risk, effort, source and who suggested it. Nothing here acts for you.">
     {#if !steps}
       <p class="muted">Loading…</p>
     {:else if steps.steps.length}

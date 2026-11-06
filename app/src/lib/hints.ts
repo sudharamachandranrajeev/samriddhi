@@ -42,6 +42,18 @@ export const HINTS: Record<string, { title: string; text: string }> = {
     title: 'Keys stay on the device',
     text: 'The key that opens your data lives in this device’s secure key store. A new device, or a reset, needs the recovery key you wrote down at set-up.',
   },
+  wealth: {
+    title: 'Counted in one currency',
+    text: 'Adding pounds to rupees needs an exchange rate, and rates move. Until Samriddhi has a dated rate, money in another currency is listed but left out of the totals rather than guessed.',
+  },
+  plan: {
+    title: 'Time changes the mix',
+    text: 'Money you need within a couple of years has no time to recover from a fall, so it belongs mostly in cash and bonds. Money for twenty years from now can ride out bad years in shares.',
+  },
+  insights: {
+    title: 'Rebalance with new money first',
+    text: 'Putting new savings into whatever is below its target brings the mix back without selling, so there is no tax or trading cost. Selling is only needed when the gap is too big for new money to close.',
+  },
   settings: {
     title: 'Your data, your copy',
     text: 'An export is a readable copy of everything, for you to keep or move. A backup is an encrypted copy that only your keys can open.',

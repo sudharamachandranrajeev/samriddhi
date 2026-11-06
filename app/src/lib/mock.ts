@@ -9,10 +9,11 @@
 // updated itself once and sees a newer version.
 
 import type {
-  AiSettings, AiSettingsView, BackupKind, Backups, CountryTie, Dismissal, Goal, ImportPreview, Profile, RiskAnswer, RiskProfile, RiskQuestion,
+  Account, AiSettings, AiSettingsView, BackupKind, ClassWeights, GoalInput, Holding, HoldingsImportPreview, HoldingsImportView, Backups, CountryTie, Dismissal, Goal, ImportPreview, Profile, RiskAnswer, RiskProfile, RiskQuestion,
   RollbackPlan, SecurityStatus, Status, Step, UpdateInfo, UpdateMode, UpdateStatus,
 } from './api.ts'
 import { formatMoney, monthsCovered, roughNetWorth, type Money } from './money.ts'
+import { insightsView, planView, rebalanceView, wealthView } from './mock-portfolio.ts'
 
 const o = (id: string, text: string, score: number) => ({ id, text, score })
 
@@ -82,13 +83,18 @@ interface Db {
   /** A newer version the preview pretends is out (the ?demo=update page). */
   update: UpdateInfo | null
   pending: ImportPreview | null
+  accounts: Account[]
+  holdings: Holding[]
+  /** A holdings file picked and waiting for Import (Settings, Import holdings). */
+  pendingHoldings: boolean
+  nextId: number
   picked: boolean
   wrong: number
 }
 
 const fresh = (): Db => ({
   exists: false, open: false, locked: false, settings: {}, facts: {}, countries: [], goals: [], answers: [], dismissed: [], accepted: [],
-  backups: [], pending: null, picked: false, wrong: 0, update: null,
+  backups: [], pending: null, picked: false, wrong: 0, update: null, accounts: [], holdings: [], pendingHoldings: false, nextId: 1,
 })
 
 const NOW = '2026-11-06T09:00:00Z'
@@ -110,6 +116,21 @@ function demo(db: Db) {
   ]
   db.goals = [{ kind: 'emergencyCushion', target: GBP(1300000), targetDate: '2027-12-31' }, { kind: 'clearDebt', target: null, targetDate: null }]
   db.answers = QUESTIONS.map((q) => ({ questionId: q.id, optionId: q.options[q.part === 'attitude' ? 2 : 1].id }))
+  const acc = (id: string, name: string, wrapper: Account['wrapper']) => db.accounts.push({ id, name, wrapper, source: 'manual' })
+  const hold = (accountId: string, name: string, assetClass: Holding['assetClass'], minor: number, currency = 'GBP') =>
+    db.holdings.push({ id: `h${db.holdings.length + 1}`, accountId, name, assetClass, amount: { minor, currency } })
+  acc('a1', 'Stocks and shares ISA', 'isa')
+  hold('a1', 'Global index fund', 'equity', 2_450_000)
+  hold('a1', 'Short-dated gilts fund', 'bonds', 520_000)
+  acc('a2', 'Workplace pension', 'pension')
+  hold('a2', 'Pension global equity fund', 'equity', 3_100_000)
+  hold('a2', 'Pension bond fund', 'bonds', 1_150_000)
+  hold('a2', 'Property fund', 'property', 260_000)
+  acc('a3', 'Easy-access saver', 'cash')
+  hold('a3', 'Easy-access savings', 'cash', 420_000)
+  acc('a4', 'Savings abroad', 'taxable')
+  hold('a4', 'Fixed deposit', 'cash', 30_000_000, 'INR')
+  hold('a4', 'Gold savings plan', 'gold', 1_200_000, 'AED')
   db.backups = [
     { name: 'samriddhi-2026-11-06.db', kind: 'daily', bytes: 98304 },
     { name: 'samriddhi-2026-11-05.db', kind: 'daily', bytes: 98304 },
@@ -213,11 +234,34 @@ function agentSteps(): Step[] {
   ].filter((s) => !db.dismissed.some((d) => d.stepId === s.id) && !db.accepted.includes(s.id))
 }
 
+const ASSUMED_YEARS: Record<string, number> = { emergencyCushion: 1, clearDebt: 2, buyHome: 5, retireEarly: 20 }
+
+/** Goals as the plan sees them: years until the date, or a usual horizon for the kind when there is none. */
+function goalInputs(): GoalInput[] {
+  return db.goals.map((g) => {
+    const years = g.targetDate ? Math.max(0, (Date.parse(g.targetDate) - Date.parse(TODAY)) / (365.25 * 86_400_000)) : (ASSUMED_YEARS[g.kind] ?? 10)
+    return { name: g.kind, target: g.target, horizonYears: years, horizonAssumed: !g.targetDate }
+  })
+}
+
+function plan() {
+  const r = profile().risk
+  const tier = typeof db.settings['plan.tier'] === 'number' ? (db.settings['plan.tier'] as number) : null
+  return planView(r ? { level: r.combined, label: r.label } : null, goalInputs(), tier)
+}
+
+const planTarget = (): ClassWeights | null => plan().plan?.blended ?? null
+
+const HOLDINGS_PREVIEW: HoldingsImportPreview = {
+  newAccounts: 1, updatedAccounts: 1, unchangedAccounts: 1, newHoldings: 3, updatedHoldings: 2, unchangedHoldings: 2, notCountedNoFx: 1,
+  problems: ['Row 9: the asset class is not one Samriddhi knows; use equity, bonds, property, gold or cash.'],
+}
+
 const AI_OFF: AiSettings = { enabled: false, provider: 'local', endpoint: '', model: '' }
 
 const summary = () => ({
   schema: 1,
-  counts: { sam_profile: Object.keys(db.facts).length, sam_countries: db.countries.length, sam_goals: db.goals.length, sam_risk_answers: db.answers.length, sam_steps_dismissed: db.dismissed.length },
+  counts: { sam_profile: Object.keys(db.facts).length, sam_countries: db.countries.length, sam_goals: db.goals.length, sam_risk_answers: db.answers.length, sam_steps_dismissed: db.dismissed.length, sam_accounts: db.accounts.length, sam_holdings: db.holdings.length },
 })
 
 function status(): Status {
@@ -357,6 +401,62 @@ const handlers: Record<string, (a: Args) => unknown> = {
     db.accepted.push(id)
     return null
   },
+  wealth_view: () => { needOpen(); return wealthView(db.accounts, db.holdings, 'GBP') },
+  account_add: ({ name, wrapper }) => {
+    needOpen()
+    const a: Account = { id: `a-new-${db.nextId++}`, name, wrapper, source: 'manual' }
+    db.accounts.push(a)
+    return a
+  },
+  account_update: ({ id, name, wrapper }) => {
+    needOpen()
+    const a = db.accounts.find((x) => x.id === id)
+    if (!a) throw 'That account is not there any more.'
+    Object.assign(a, { name, wrapper })
+    return null
+  },
+  account_delete: ({ id }) => {
+    needOpen()
+    db.accounts = db.accounts.filter((a) => a.id !== id)
+    db.holdings = db.holdings.filter((h) => h.accountId !== id)
+    return null
+  },
+  holding_add: ({ accountId, name, assetClass, amount }) => {
+    needOpen()
+    if (!db.accounts.some((a) => a.id === accountId)) throw 'That account is not there any more.'
+    const h: Holding = { id: `h-new-${db.nextId++}`, accountId, name, assetClass, amount }
+    db.holdings.push(h)
+    return h
+  },
+  holding_update: ({ holding }) => {
+    needOpen()
+    const i = db.holdings.findIndex((h) => h.id === holding.id)
+    if (i < 0) throw 'That holding is not there any more.'
+    db.holdings[i] = holding
+    return null
+  },
+  holding_delete: ({ id }) => { needOpen(); db.holdings = db.holdings.filter((h) => h.id !== id); return null },
+  holdings_import_pick: (): HoldingsImportView => {
+    needOpen()
+    db.pendingHoldings = true
+    return { file: 'sample-holdings.csv', base: 'GBP', accounts: 3, holdings: 7, preview: HOLDINGS_PREVIEW }
+  },
+  holdings_import_apply: () => {
+    needOpen()
+    if (!db.pendingHoldings) throw 'Choose a holdings file first.'
+    db.pendingHoldings = false
+    db.accounts.push({ id: 'a-imp', name: 'General investment account', wrapper: 'taxable', source: 'import' })
+    const add = (name: string, assetClass: Holding['assetClass'], minor: number) =>
+      db.holdings.push({ id: `h-imp-${db.nextId++}`, accountId: 'a-imp', name, assetClass, amount: { minor, currency: 'GBP' } })
+    add('Global small companies fund', 'equity', 380_000)
+    add('Corporate bond fund', 'bonds', 240_000)
+    add('Infrastructure fund', 'property', 120_000)
+    return { backup: `before-import-${TODAY}-090300.db`, done: HOLDINGS_PREVIEW }
+  },
+  holdings_import_cancel: () => { db.pendingHoldings = false; return null },
+  plan_view: () => { needOpen(); return plan() },
+  rebalance_view: ({ cashFlow }) => { needOpen(); return rebalanceView(db.holdings, 'GBP', planTarget(), cashFlow ?? null) },
+  insights_view: () => { needOpen(); return insightsView('GBP', planTarget()) },
   ai_settings_get: (): AiSettingsView => {
     needOpen()
     const settings = (db.settings['ai.settings'] as AiSettings | undefined) ?? AI_OFF
@@ -400,6 +500,9 @@ const handlers: Record<string, (a: Args) => unknown> = {
         { table: 'sam_goals', current: db.goals.length, incoming: 3 },
         { table: 'sam_risk_answers', current: db.answers.length, incoming: 10 },
         { table: 'sam_steps_dismissed', current: db.dismissed.length, incoming: 1 },
+        { table: 'sam_accounts', current: db.accounts.length, incoming: 3 },
+        { table: 'sam_holdings', current: db.holdings.length, incoming: 6 },
+        { table: 'sam_step_log', current: db.accepted.length, incoming: 2 },
       ],
       kept: ['sam_settings', 'sam_audit'],
     }

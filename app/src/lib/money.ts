@@ -85,6 +85,12 @@ export function formatMoney(m: Money, opts: FormatOptions = {}): string {
 }
 
 /** The plain decimal for an input box: 125050 GBP -> "1250.50"; whole amounts drop ".00". */
+/** A model's figure to the nearest whole unit (pound, rupee): its pennies would claim a precision it does not have. */
+export function wholeUnits(m: Money): Money {
+  const step = 10 ** exponent(m.currency)
+  return { ...m, minor: Math.round(m.minor / step) * step }
+}
+
 export function toInput(m: Money | null | undefined): string {
   if (!m) return ''
   return formatMoney(m).replace(/^-?[£₹$€¥]|^AED |\s[A-Z]{3}$/g, '').replace(/,/g, '')
