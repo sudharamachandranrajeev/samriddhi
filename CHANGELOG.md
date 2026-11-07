@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.2.0] (unreleased)
+## [0.2.0] - 2026-11-07
 
 This version merges in the features of the earlier Flutter prototype, `samridhi`, which is
 now retired.
