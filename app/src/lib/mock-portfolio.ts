@@ -16,7 +16,7 @@ const ASSUME: Record<AssetClass, [number, number]> = {
 }
 export const DISCLOSURE = 'This is a model using illustrative assumptions, not financial advice or a guarantee. Past and simulated results do not predict future returns.'
 const AS_OF = '2026-11-05'
-const SOURCE = 'Generic long-run illustrative figures carried over from the samridhi prototype. Synthetic: not market data and not a forecast.'
+const SOURCE = 'Generic long-run illustrative figures. Synthetic: not market data and not a forecast.'
 const SAMPLE = 'Synthetic sample data (seeded random, not real market history).'
 const TIERS = [0.1, 0.25, 0.4, 0.55, 0.7, 0.85, 0.95]
 const GROWTH_BY_LEVEL = [0.2, 0.35, 0.5, 0.65, 0.8]

@@ -31,13 +31,15 @@
 *Samriddhi* (समृद्धि) is Sanskrit for "abundance". The app is for anyone who wants a calm,
 honest picture of their money and a nudge towards the one step that would help most. It
 explains every figure and every suggestion in plain words, so you learn as you go.
-Status: **alpha**. The first release, 0.1.0, is being prepared; until it appears on the
-[releases page](https://github.com/sudharamachandranrajeev/samriddhi/releases), build it from
-source (see [For developers](#%EF%B8%8F-for-developers)).
+Status: **alpha**, version 0.2.0 being prepared. If a version is not on the
+[releases page](https://github.com/sudharamachandranrajeev/samriddhi/releases) yet, build it
+from source (see [For developers](#%EF%B8%8F-for-developers)). One honest limit: amounts in a
+second currency are listed but not yet added up, because exchange rates are still to come.
 
 > [!NOTE]
 > Samriddhi gives guidance and education, not regulated financial advice. It never moves
-> money, links to a bank or places trades.
+> money, links to a bank or places trades. Plans, forecasts and backtests are models on
+> made-up figures, not predictions.
 
 ## ✨ What it does
 
@@ -45,19 +47,25 @@ source (see [For developers](#%EF%B8%8F-for-developers)).
   risk and updates. Each one says in one sentence why it asks, and most can be skipped.
 - 💷 **A rough net worth** – your cash minus your debts, clearly marked "rough, from your
   answers". Amounts are kept exactly, never rounded.
-- 👣 **One next best step** – from simple dated rules: a missing safety cushion, costly debt, or
-  a fact still needed. Each shows its risk, effort and source. Put it off, turn it down with a
-  reason, or bring it back later.
+- 💼 **What you hold** – your accounts and what is in them, added up by kind of asset. Type
+  them in, or import a file.
+- 🥧 **A plan for each goal** – a target mix of assets per goal, from your risk level and how
+  soon you need the money.
+- 📈 **Insights** – rebalancing, a return forecast with its track record, a backtest and a
+  direct-indexing simulator, all clearly labelled as models on made-up figures.
+- 👣 **One next best step** – from simple dated rules and from Samriddhi's own checks: a missing
+  safety cushion, costly debt, a mix that has drifted. Each shows its risk, effort, source and
+  how far to trust it. **Accept** only notes your choice.
+- 🤖 **Optional AI, off by default** – a model you choose can explain your steps in plain words.
+  You read the exact text before anything is sent.
 - ⚖️ **Risk in two parts** – how much risk you are comfortable with, and how much loss you could
   afford, shown apart in plain words. You can change your answers any time.
 - ❓ **Explain on every figure** – tap the **?** beside any number to see what it means. Every
   screen also has a short "Learn" hint.
 - 🔐 **Locked on your device** – an encrypted store (only your keys can read it), a recovery key,
-  an optional PIN, and fingerprint or face unlock on Android.
-- 🗄️ **Backups you control** – a daily encrypted backup, backups on demand, a second folder,
-  and restore with a preview of what comes back.
-- 📤 **Your data, your copy** – export everything as JSON or CSV, and import it again with a
-  count of what will change first.
+  an optional PIN, fingerprint or face unlock on Android, and a security status page.
+- 🗄️ **Backups and your own copy** – a daily encrypted backup, restore with a preview, and a
+  full export as JSON or CSV that you can import again.
 - 🔄 **Updates you can undo** – Samriddhi can check for a new version when it starts and asks
   before installing. It backs up your data first, and on a computer you can go back a version.
 - 🎨 **Three looks** – Swarna (night navy and gold), Bahi (cream ledger with red ink) and Vana
@@ -71,9 +79,12 @@ source (see [For developers](#%EF%B8%8F-for-developers)).
 | <img src="docs/screenshots/swarna-wizard-5-money.png" alt="Money screen with take-home pay, costs, cash and a credit card debt" width="280"><br>Money in and out | <img src="docs/screenshots/vana-wizard-6-risk-result.png" alt="Risk result: attitude Balanced and capacity Medium, shown apart" width="280"><br>Risk, in two parts | <img src="docs/screenshots/bahi-home-dark.png" alt="Home screen in the Bahi theme, dark mode" width="280"><br>Home in Bahi, dark |
 | <img src="docs/screenshots/vana-settings.png" alt="Settings: theme picker with the three looks" width="280"><br>Pick a look | <img src="docs/screenshots/swarna-settings-backups.png" alt="Settings: backups list and restore" width="280"><br>Backups | <img src="docs/screenshots/swarna-unlock.png" alt="Lock screen asking for a PIN" width="280"><br>Unlock |
 | <img src="docs/screenshots/bahi-wizard-7-updates.png" alt="Set-up screen asking whether to check for new versions" width="280"><br>New versions, your choice | <img src="docs/screenshots/swarna-update-banner.png" alt="Home screen with a message that version 0.1.2 is out, its size, what is new, Install and restart, and Later" width="280"><br>A new version, with Later | <img src="docs/screenshots/vana-settings-updates.png" alt="Settings: updates, go back a version, and report a problem" width="280"><br>Updates and going back |
+| <img src="docs/screenshots/swarna-wealth.png" alt="Wealth screen: holdings added up by kind of asset, four accounts, and two holdings in rupees and dirhams marked not counted" width="280"><br>What you hold | <img src="docs/screenshots/vana-plan.png" alt="Plan screen: an overall target mix, the portfolio style chips Per goal and 1 to 7, and a mix for each goal" width="280"><br>A plan per goal | <img src="docs/screenshots/bahi-plan-tier.png" alt="Plan screen in tier mode, with a warning that short goals are not made safer" width="280"><br>Tiers 1 to 7 |
+| <img src="docs/screenshots/vana-insights.png" alt="Insights screen: rebalancing against the plan, a synthetic return forecast, a backtest and the direct-indexing simulator" width="280"><br>Insights, labelled as models | <img src="docs/screenshots/bahi-home-steps.png" alt="Home screen with several next steps, each with Accept (note my choice), Later and Not for me" width="280"><br>Suggestions on Home | <img src="docs/screenshots/vana-settings-holdings.png" alt="Settings: import holdings from a JSON or CSV file, with a preview first" width="280"><br>Import holdings |
+| <img src="docs/screenshots/swarna-settings-ai.png" alt="Settings: AI turned on with a local model, and the exact text that would be sent, with Send this text and Do not send" width="280"><br>Optional AI, with a preview | <img src="docs/screenshots/bahi-settings-security.png" alt="Settings: security status rows for the lock, the encrypted store and the last backup" width="280"><br>Security status | <img src="docs/screenshots/swarna-phone-wealth.png" alt="The Wealth screen on a phone" width="280"><br>On a phone |
 
-All screenshots use made-up demo data. Every wizard screen, home and settings are in
-[`docs/screenshots`](docs/screenshots) for all three looks.
+All screenshots use made-up demo data. Every wizard screen, home, wealth, plan, insights and
+settings are in [`docs/screenshots`](docs/screenshots) for all three looks.
 
 ## 🚀 Get started
 
@@ -116,7 +127,7 @@ unchanged.
 2. Type, with your file's name:
 
    ```powershell
-   certutil -hashfile Samriddhi_0.1.0_x64-setup.exe SHA256
+   certutil -hashfile Samriddhi_0.2.0_x64-setup.exe SHA256
    ```
 
 3. Compare the long number with the line for that file in `SHA256SUMS.txt`.
@@ -190,6 +201,15 @@ The first-run guide has eight steps:
 7. **New versions** – pick **Ask me when a new version is out** or **Do not check**.
 8. **Your first step** – the step that would help most, then **Go to my home**.
 
+### Step 5: add what you hold (optional)
+
+1. Open **Wealth** and press **Add an account**. Give it a name and a kind (ISA, pension,
+   taxable or cash).
+2. Press **Add a holding** in that account. Type its name, the kind of asset and its value.
+3. Or bring many at once from a file: see [Import holdings](#-import-holdings).
+
+Your **Plan** and **Insights** screens fill in from these figures and your risk answers.
+
 <details>
 <summary><b>Build it yourself instead</b></summary>
 
@@ -212,20 +232,100 @@ A copy built this way does not update itself.
    address to skip straight to a finished set-up.
 </details>
 
+## 💼 Wealth, plan and insights
+
+> [!NOTE]
+> Every plan, forecast, backtest and simulation here is a model on illustrative or made-up
+> (synthetic) figures. Each screen says so. It is guidance, not regulated advice.
+
+**Wealth** lists your accounts and holdings and adds them up by kind of asset: equities, bonds,
+property, gold and cash. Totals are in one main currency: the one your money answers are in. A
+holding in another currency (rupees or dirhams, say) is listed and marked **not counted, no FX
+yet**. It is left out of the totals until Samriddhi has dated exchange rates (FX), rather
+than guessed.
+
+**Plan** suggests a target mix of assets for each goal, then blends them into one overall
+target.
+
+- **Risk level:** the lower of the risk you are willing to take and the loss you could absorb,
+  from your risk answers (1 to 5).
+- **Time:** each goal moves to safer assets as its date nears. A goal needed within 2 years
+  holds at most 10% in growth assets.
+- **Assumed horizon:** a goal with no date gets the usual time for its kind, marked
+  **Assumed horizon**. Add a date in **Settings → Your answers → Goals** to make it yours.
+- **Tiers 1 to 7:** under **Portfolio style**, pick a tier from 1 (cautious) to 7
+  (adventurous) to give every goal the same mix. The screen warns that this does not make
+  short goals safer. **Per goal** goes back to the default.
+
+**Insights** shows four models:
+
+- **Rebalancing:** how far your holdings have drifted from the plan, and where new money
+  should go (or come from) to close the gap without selling. It is only worked out on screen.
+- **Next-year return forecast:** a simple statistical model on made-up yearly returns, with a
+  band and a track record of how often that band held.
+- **Backtest:** one mix replayed through 20 made-up years under three rebalancing rules.
+- **Direct-indexing simulator:** shows how selling shares at a loss could offset tax, on
+  made-up shares. Education only.
+
+**Suggestions on Home.** Samriddhi's checks (risk profile, plan, rebalancing, outlook, tax
+wrappers, habits) add steps to the same list as the rule steps. Each says what it rests on and
+how far to trust it. **Accept (note my choice)** only records on this device that you mean to
+do it, and hides the step for 14 days. Samriddhi never trades, moves money or contacts anyone
+for you.
+
+## 📥 Import holdings
+
+Bring accounts and holdings from a file, for example an export from another app.
+
+1. Open **Settings → Import holdings** and press **Choose a holdings file…**.
+2. Read the preview: how many accounts and holdings would be added or changed, and any rows
+   skipped, with the reason.
+3. Press **Import these holdings**. Your data is backed up first.
+
+The file can be:
+
+- **JSON** in the `samriddhi-holdings-v1` format. The older name `samridhi-holdings-v1` is
+  read too.
+- **CSV** with the columns `account,wrapper,holding,assetClass,value` and an optional
+  `currency` column. `wrapper` is `isa`, `pension`, `taxable` or `cash`. `assetClass` is
+  `equity`, `bonds`, `property`, `gold` or `cash`.
+
+An import never deletes anything. Importing the same file again updates the same rows. Files
+over 2 MB are refused.
+
+## 🤖 Optional AI
+
+AI is **off** until you turn it on. When on, a model you choose explains your steps in plain
+words.
+
+1. Open **Settings → AI** and tick **Use an AI model to explain my steps**.
+2. Under **Where it goes**, pick one:
+   - **My own model:** a model on this computer or your own network, such as Ollama.
+   - **Cloud service:** any OpenAI-compatible service over https, with your own key.
+   - **Anthropic:** with your own Anthropic key.
+3. Press **Save AI settings**, and **Save key** for a cloud or Anthropic key. On a computer the
+   key is kept in your system keyring; on Android it is locked with its own Android Keystore
+   key. It is never shown again, and is sent only over https to the service you picked.
+4. Press **Show what would be sent**. You see the exact text and where it would go.
+5. Press **Send this text**, or **Do not send**.
+
+The text holds only rounded, nameless figures: no account or holding names, no exact amounts,
+no dates, and goals become "Goal 1", "Goal 2". The reply is words from a model, not advice.
+
 ## 🧭 How it works
 
 ```mermaid
 flowchart LR
-  A["Your answers"] --> B["Encrypted store<br>on this device"]
-  B --> C["Simple dated rules"]
-  C --> D["Next best step,<br>with reason and source"]
+  A["Your answers<br>and holdings"] --> B["Encrypted store<br>on this device"]
+  B --> C["Dated rules,<br>plan and checks"]
+  C --> D["Next steps,<br>with reason and source"]
   B --> E["Daily encrypted backup"]
-  B --> F["Export: JSON or CSV"]
   G["GitHub releases"] -. "signed update,<br>only if you agree" .-> B
+  D -. "only text you have read,<br>only if AI is on" .-> H["AI model<br>you chose"]
 ```
 
-- Everything runs on your device: no bank links, no AI and no tracking. The only time it goes
-  online is to check GitHub for a new version, which you can turn off.
+- Everything runs on your device: no bank links and no tracking. It goes online only to check
+  GitHub for a new version (you can turn this off), and to send AI text you have read first.
 - The rules are written down with their source and the date they were checked.
 - Money is kept in each currency's smallest unit (pence, paise, fils), so sums never drift.
 
@@ -235,9 +335,22 @@ flowchart LR
 - **What leaves the device:** nothing, unless you export or save a backup somewhere yourself.
   The update check only asks GitHub for the newest version number. A problem report opens
   in your browser, without amounts or names, and is sent only when you press **Submit** there.
+  If you turn AI on, only the text you have read and pressed **Send this text** for.
 - **Back it up:** **Settings → Backups → Back up now**, or choose a second folder there.
   Samriddhi also backs up before every update and keeps the last three of those.
 - **Delete it:** uninstall the app and remove its data folder.
+
+**Security status.** **Settings → Security** shows, at a glance, what protects your data: the
+app lock, fingerprint or face, whether the data is encrypted and how old the last backup is.
+It only reports; nothing is sent anywhere.
+
+- **Android:** turn on **Block screenshots and screen recording** to hide the app from
+  screenshots, recordings and the app-switcher preview. A **Rooted phone** row says if the
+  phone may be rooted, for information only.
+- **Windows:** if the Brahma Sentinel security service is installed, a **Sentinel** row says
+  whether it is running. Samriddhi works the same without it.
+- **Wrong PIN:** after five wrong PINs you wait before the next try, from 30 seconds up to 15
+  minutes. Closing and reopening the app does not reset the wait.
 
 > [!IMPORTANT]
 > Keep your recovery key safe. If this device breaks or its saved key is lost, the recovery
@@ -263,7 +376,32 @@ recovery key on the screen that appears. Your data opens as before.
 <summary><b>Why is my net worth "rough"?</b></summary>
 
 It is only your cash minus the debts you told us about. It leaves out homes, pensions and
-investments for now. It is a starting point, not a valuation.
+investments for now, including the holdings on the **Wealth** screen. It is a starting point,
+not a valuation.
+</details>
+
+<details>
+<summary><b>Some holdings say "not counted, no FX yet"</b></summary>
+
+They are in a different currency from your main one. Adding pounds to rupees needs an exchange
+rate, and Samriddhi does not have dated rates yet. Rather than guess, it lists those holdings
+and leaves them out of totals, the plan and rebalancing. They will count once exchange rates
+arrive.
+</details>
+
+<details>
+<summary><b>What does Accept do?</b></summary>
+
+It only notes on this device that you mean to take the step, and hides it for 14 days.
+Samriddhi does not trade, move money or contact anyone. You take the step yourself, if you
+want to.
+</details>
+
+<details>
+<summary><b>I typed the wrong PIN too many times</b></summary>
+
+Wait until the lock screen says you can try again; the wait is never more than 15 minutes.
+Or press **Forgot your PIN? Use your recovery key**, which always works.
 </details>
 
 <details>
@@ -346,11 +484,14 @@ npm run build        # the web part
 cd app && npx tauri build --bundles appimage
 ```
 
+The Rust core holds the money, plan, rebalancing, forecast, backtest, direct-indexing and
+holdings-import engines, each with its tests; the app only shows their results.
+
 Screenshots come from the browser stand-in (`app/src/lib/mock.ts`), so every figure is made
 up. With Chromium installed, run `npm run screenshots`. Set `CHROMIUM` if it is not at
 `/usr/bin/chromium`.
 
-Releases: push a tag like `v0.1.0`. [`release.yml`](.github/workflows/release.yml) runs the
+Releases: push a tag like `v0.2.0`. [`release.yml`](.github/workflows/release.yml) runs the
 checks, builds every file into a draft release with `latest.json` and `SHA256SUMS.txt`, and
 the owner publishes it by hand.
 
@@ -379,6 +520,9 @@ Samriddhi is part of BrahmaOS, a family of private, local-first apps.
 | Artha | Day-to-day money: ledger, budgets and forecast |
 | Arogya Swasthya | Your lifelong health records |
 | Vinyasa | Organising the spaces you live in |
+
+This repository absorbed the earlier Flutter prototype
+[`samridhi`](https://github.com/sudharamachandranrajeev/samridhi), which is now retired.
 
 ## License
 

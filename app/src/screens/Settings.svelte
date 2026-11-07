@@ -340,7 +340,7 @@
     <ol class="safety">
       {#each SAFETY as s (s.title)}<li><strong>{s.title}.</strong> <span class="muted">{s.text}</span></li>{/each}
     </ol>
-    <p class="muted small about">Samriddhi 0.1.0 · local mode: your data stays on this device · MIT licence <Explain title="Local mode" text="Everything runs on this device: no bank links, no tracking. It goes online only to check GitHub for a new version, which you can turn off in Settings, Updates, and, if you turn AI on, to send a text you have read first to the model you chose." /></p>
+    <p class="muted small about">Samriddhi 0.2.0 · local mode: your data stays on this device · MIT licence <Explain title="Local mode" text="Everything runs on this device: no bank links, no tracking. It goes online only to check GitHub for a new version, which you can turn off in Settings, Updates, and, if you turn AI on, to send a text you have read first to the model you chose." /></p>
   </Card>
 {/if}
 

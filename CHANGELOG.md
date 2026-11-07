@@ -1,5 +1,40 @@
 # Changelog
 
+## [0.2.0] (unreleased)
+
+This version merges in the features of the earlier Flutter prototype, `samridhi`, which is
+now retired.
+
+- **Wealth**: your accounts (ISA, pension, taxable, cash) and what is in them, added up by kind
+  of asset. Holdings in another currency are listed but not counted until exchange rates
+  arrive.
+- **Plan**: a target mix of assets for each goal, from your risk level and how soon you need
+  the money, blended into one overall target. Short goals are kept safer as their date nears.
+  A goal with no date gets an assumed horizon, clearly marked. Optional tiers 1 to 7 give every
+  goal the same mix, with a warning.
+- **Insights**: rebalancing against the plan (with a new-money option that sells nothing), a
+  next-year return forecast with its track record, a backtest of three rebalancing rules and a
+  direct-indexing simulator. All are labelled as models on illustrative or made-up figures.
+- **Suggestions on Home**: Samriddhi's own checks (risk profile, plan, rebalancing, outlook,
+  tax wrappers, habits) add steps to the same list, each with what it rests on and how far to
+  trust it. **Accept (note my choice)** only records your choice on this device; Samriddhi
+  never trades, moves money or contacts anyone.
+- **Import holdings** from a JSON file (`samriddhi-holdings-v1`, and the older
+  `samridhi-holdings-v1`) or a CSV file (`account,wrapper,holding,assetClass,value` and an
+  optional `currency`). You see a preview first; an import never deletes, and importing the
+  same file again updates the same rows.
+- **Optional AI, off by default**: a model on your own computer or network, any
+  OpenAI-compatible cloud service, or Anthropic, with your own key kept in the system keyring
+  (or the Android Keystore). You see the exact text before it is sent, and it holds only
+  rounded, nameless figures.
+- **Security status** in Settings: app lock, fingerprint or face, encryption and the last
+  backup at a glance.
+- Android: an optional switch to block screenshots, screen recording and the app-switcher
+  preview, and a "rooted phone" row for information.
+- Windows: a status row for the Brahma Sentinel security service, if it is installed.
+- The wait after too many wrong PINs now survives closing and reopening the app.
+- Accounts, holdings and your accepted steps are included in the full export and import.
+
 ## [0.1.0] (unreleased)
 
 - First foundation: an encrypted store on your device, a recovery key shown once, an optional

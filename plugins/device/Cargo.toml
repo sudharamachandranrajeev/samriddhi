@@ -1,6 +1,6 @@
 [package]
 name = "tauri-plugin-samriddhi-device"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Samriddhi contributors"]
 description = "Keeps the Samriddhi database key in the device keystore"
 license = "MIT"

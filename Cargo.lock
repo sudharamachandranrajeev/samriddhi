@@ -3425,7 +3425,7 @@ dependencies = [
 
 [[package]]
 name = "samriddhi"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "jiff",
  "reqwest",
@@ -3448,7 +3448,7 @@ dependencies = [
 
 [[package]]
 name = "samriddhi-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "argon2",
  "getrandom 0.3.4",
@@ -4324,7 +4324,7 @@ dependencies = [
 
 [[package]]
 name = "tauri-plugin-samriddhi-device"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "getrandom 0.3.4",
  "keyring-core",

@@ -1,6 +1,6 @@
 {
   "name": "@samriddhi/ui",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Design tokens, global themes and Svelte 5 components for Samriddhi",
   "license": "MIT",
   "type": "module",
