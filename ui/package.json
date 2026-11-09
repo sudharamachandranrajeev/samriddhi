@@ -21,6 +21,6 @@
     "@fontsource-variable/jetbrains-mono": "^5.2.8",
     "@fontsource-variable/plus-jakarta-sans": "^5.3.0",
     "@fontsource-variable/sora": "^5.3.0",
-    "@lucide/svelte": "^1.64.0"
+    "@lucide/svelte": "^1.70.0"
   }
 }
