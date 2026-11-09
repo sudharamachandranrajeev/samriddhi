@@ -44,6 +44,7 @@ jobs:
       - name: UI check, tests and build
         run: |
           npm ci
+          npm audit --omit=dev --audit-level=high
           npm run check
           npm test
           npm run build
