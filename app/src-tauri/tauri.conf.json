@@ -46,7 +46,7 @@
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDJCMTlGRkM1N0Q0Rjk1NjkKUldScGxVOTl4ZjhaSzEwaGV4YjRKOGZuV3QvcFpDelllTDBtZ2oyRXBZNEtQamJSczV1Z1JtMHMK",
       "requireSignedVersion": true,
       "endpoints": [
-        "https://github.com/sudharamachandranrajeev/samriddhi/releases/latest/download/latest.json"
+        "https://github.com/sudharamachandranrajeev/samriddhi-wealth-manager/releases/latest/download/latest.json"
       ],
       "windows": {
         "installMode": "passive"

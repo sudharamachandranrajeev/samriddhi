@@ -9,7 +9,7 @@
 <h4 align="center">See where your money stands, and get one clear next step, privately on your own device.</h4>
 
 <p align="center">
-  <a href="https://github.com/sudharamachandranrajeev/samriddhi/releases/latest"><img src="https://img.shields.io/github/v/release/sudharamachandranrajeev/samriddhi?label=release&color=b5562f" alt="Latest release"></a>
+  <a href="https://github.com/sudharamachandranrajeev/samriddhi-wealth-manager/releases/latest"><img src="https://img.shields.io/github/v/release/sudharamachandranrajeev/samriddhi-wealth-manager?label=release&color=b5562f" alt="Latest release"></a>
   <img src="https://img.shields.io/badge/status-alpha-b5562f" alt="Alpha">
   <img src="https://img.shields.io/badge/works%20on-Linux%20%7C%20Windows%20%7C%20Android-555" alt="Works on Linux, Windows and Android">
   <img src="https://img.shields.io/badge/license-MIT-2e7d32" alt="MIT licence">
@@ -32,7 +32,7 @@
 honest picture of their money and a nudge towards the one step that would help most. It
 explains every figure and every suggestion in plain words, so you learn as you go.
 Status: **alpha**, version 0.2.0 being prepared. If a version is not on the
-[releases page](https://github.com/sudharamachandranrajeev/samriddhi/releases) yet, build it
+[releases page](https://github.com/sudharamachandranrajeev/samriddhi-wealth-manager/releases) yet, build it
 from source (see [For developers](#%EF%B8%8F-for-developers)). One honest limit: amounts in a
 second currency are listed but not yet added up, because exchange rates are still to come.
 
@@ -90,7 +90,7 @@ settings are in [`docs/screenshots`](docs/screenshots) for all three looks.
 
 ### Step 1: download
 
-Open the [latest release](https://github.com/sudharamachandranrajeev/samriddhi/releases/latest)
+Open the [latest release](https://github.com/sudharamachandranrajeev/samriddhi-wealth-manager/releases/latest)
 and pick the file for your device:
 
 | Device | File to pick | Works on |
@@ -452,7 +452,7 @@ version on a phone. Restore your data instead:
 2. Find the backup marked **Before an update** and press **Restore…**.
 3. Check the preview, then confirm. Your current data is backed up first.
 
-Then [tell us what went wrong](https://github.com/sudharamachandranrajeev/samriddhi/issues/new/choose).
+Then [tell us what went wrong](https://github.com/sudharamachandranrajeev/samriddhi-wealth-manager/issues/new/choose).
 </details>
 
 <details>

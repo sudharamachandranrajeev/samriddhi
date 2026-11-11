@@ -17,7 +17,7 @@ use tauri_plugin_opener::OpenerExt;
 use crate::data::KEEP_PRE_UPDATE;
 use crate::{App, CommandResult, LOCKED, err, get, now};
 
-const REPO: &str = "https://github.com/sudharamachandranrajeev/samriddhi";
+const REPO: &str = "https://github.com/sudharamachandranrajeev/samriddhi-wealth-manager";
 
 /// How this copy of the app was installed, which decides how it updates.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
